@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bus, Train, User, LogOut, Menu } from 'lucide-react';
+import { Train, User, LogOut, Menu } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../hooks/useAuth';
 import { blink } from '../../lib/blink';
@@ -14,13 +14,14 @@ export function Navbar() {
           <div className="bg-primary p-2 rounded-lg">
             <Train className="h-6 w-6 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-primary">RapidKL</span>
+          <span className="text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
         </div>
 
         <div className="hidden md:flex items-center gap-6">
-          <a href="/" className="text-sm font-medium hover:text-primary transition-colors">Planner</a>
-          <a href="/routes" className="text-sm font-medium hover:text-primary transition-colors">Routes</a>
-          <a href="/tickets" className="text-sm font-medium hover:text-primary transition-colors">Tickets</a>
+          <a href="#planner" className="text-sm font-medium hover:text-primary transition-colors">Planner</a>
+          <a href="#lines" className="text-sm font-medium hover:text-primary transition-colors">Line Intelligence</a>
+          <a href="#architecture" className="text-sm font-medium hover:text-primary transition-colors">Architecture</a>
+          <a href="#roadmap" className="text-sm font-medium hover:text-primary transition-colors">Roadmap</a>
         </div>
 
         <div className="flex items-center gap-4">
