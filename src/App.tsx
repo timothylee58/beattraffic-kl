@@ -130,7 +130,7 @@ function App() {
         <div id="planner" className="container -mt-16 relative z-30 pb-20">
           <div className="flex gap-2 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border">
             <Button 
-              variant={activeTab === 'planner' ? 'primary' : 'ghost'} 
+              variant={activeTab === 'planner' ? 'default' : 'ghost'} 
               onClick={() => setActiveTab('planner')}
               className="rounded-lg h-12 px-8 font-bold"
             >
@@ -138,7 +138,7 @@ function App() {
               Route Planner
             </Button>
             <Button 
-              variant={activeTab === 'tickets' ? 'primary' : 'ghost'} 
+              variant={activeTab === 'tickets' ? 'default' : 'ghost'} 
               onClick={() => setActiveTab('tickets')}
               className="rounded-lg h-12 px-8 font-bold"
             >

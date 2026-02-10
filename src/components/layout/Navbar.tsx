@@ -31,7 +31,7 @@ export function Navbar() {
                 <User className="h-4 w-4" />
                 <span className="text-sm font-medium">{user?.displayName || user?.email}</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => blink.auth.signOut()}>
+              <Button variant="ghost" size="sm" onClick={() => blink.auth.logout()}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
