@@ -323,10 +323,10 @@ function App() {
             <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">Mobile App</h4>
             <p className="text-sm text-primary-foreground/60 mb-6">Experience the future of KL transit. Download our mobile app today.</p>
             <div className="space-y-3">
-              <Button variant="secondary" className="w-full justify-start h-12 bg-white/10 border-white/20 hover:bg-white/20">
+              <Button variant="secondary" className="w-full justify-start h-12 bg-white/10 border-white/20 hover:bg-white/20 text-white">
                 <span className="text-xs font-bold uppercase">Get it on App Store</span>
               </Button>
-              <Button variant="secondary" className="w-full justify-start h-12 bg-white/10 border-white/20 hover:bg-white/20">
+              <Button variant="secondary" className="w-full justify-start h-12 bg-white/10 border-white/20 hover:bg-white/20 text-white">
                 <span className="text-xs font-bold uppercase">Get it on Google Play</span>
               </Button>
             </div>
