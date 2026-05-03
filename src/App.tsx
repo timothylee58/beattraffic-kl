@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/layout/Navbar';
 import { RoutePlanner } from './components/features/RoutePlanner';
 import { TicketList } from './components/features/TicketList';
+import { TransitIntelligencePanel } from './components/features/TransitIntelligencePanel';
 import { Train, ShieldCheck, Clock, CreditCard, Search, Ticket, Info, Activity, Sparkles, MapPinned, RadioTower, Cpu, Database, CloudLightning } from 'lucide-react';
 import { Button } from './components/ui/button';
 
@@ -125,6 +126,8 @@ function App() {
             </div>
           </div>
         </section>
+
+        <TransitIntelligencePanel />
 
         {/* Main Content Area */}
         <div id="planner" className="container -mt-16 relative z-30 pb-20">
