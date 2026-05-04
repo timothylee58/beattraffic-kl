@@ -1,0 +1,12 @@
+name: Deploy Slack Bot
+on:
+  push:
+    paths:
+      - 'slack-bot/**'
+      - 'docker-compose.yml'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Deploy slack-bot"

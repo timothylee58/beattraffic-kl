@@ -1,0 +1,74 @@
+services:
+  slack-bot:
+    image: node:20
+    working_dir: /app
+    volumes: ["./slack-bot:/app"]
+    command: sh -c "npm install && npm run dev"
+    env_file: ["./slack-bot/.env"]
+    ports: ["3000:3000", "3001:3001"]
+    depends_on:
+      redis: { condition: service_healthy }
+      orchestration-api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  orchestration-api:
+    image: python:3.12
+    working_dir: /app
+    volumes: ["./orchestration-api:/app"]
+    command: sh -c "pip install fastapi uvicorn[standard] && uvicorn main:app --host 0.0.0.0 --port 8000"
+    env_file: ["./orchestration-api/.env"]
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health/summary"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: noc
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./infra/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    ports: ["9090:9090"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["3005:3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
