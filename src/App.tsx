@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/layout/Navbar';
 import { RoutePlanner } from './components/features/RoutePlanner';
 import { TicketList } from './components/features/TicketList';
@@ -16,21 +16,22 @@ function App() {
   const [activeTab, setActiveTab] = useState<'planner' | 'tickets'>('planner');
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([]);
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch('https://lkkep88b--get-train-status.functions.blink.new');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setLineStatus(data);
     } catch (error) {
       console.error('Error fetching status:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -39,22 +40,24 @@ function App() {
       <main>
         {/* Real-time Ticker */}
         <div className="bg-primary/5 border-b py-2 overflow-hidden">
-          <div className="container">
-            <div className="flex items-center gap-8 whitespace-nowrap animate-marquee">
-              <div className="flex items-center gap-2 text-xs font-bold text-primary shrink-0 uppercase tracking-widest">
-                <Activity className="h-3 w-3" />
-                Live Network
-              </div>
-              {lineStatus.map((s, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs shrink-0">
-                  <span className="font-bold">{s.line}:</span>
-                  <span className={s.status === 'Normal' ? 'text-green-600' : 'text-destructive font-bold'}>
-                    {s.status}
-                  </span>
-                  <span className="text-muted-foreground">• {s.waitingTime}m wait</span>
+          <div className="animate-marquee flex items-center gap-8 whitespace-nowrap">
+            {[...Array(2)].map((_, copy) => (
+              <React.Fragment key={copy}>
+                <div className="flex items-center gap-2 text-xs font-bold text-primary shrink-0 uppercase tracking-widest">
+                  <Activity className="h-3 w-3" />
+                  Live Network
                 </div>
-              ))}
-            </div>
+                {lineStatus.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs shrink-0">
+                    <span className="font-bold">{s.line}:</span>
+                    <span className={s.status === 'Normal' ? 'text-green-600' : 'text-destructive font-bold'}>
+                      {s.status}
+                    </span>
+                    <span className="text-muted-foreground">• {s.waitingTime}m wait</span>
+                  </div>
+                ))}
+              </React.Fragment>
+            ))}
           </div>
         </div>
 
@@ -84,11 +87,21 @@ function App() {
                   Every line has its own AI-driven advantage so you arrive faster and less stressed.
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                  <Button className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold px-6">
+                  <Button
+                    className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold px-6"
+                    onClick={() => {
+                      setActiveTab('planner');
+                      document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
                     <Search className="h-4 w-4 mr-2" />
                     Plan a route
                   </Button>
-                  <Button variant="secondary" className="bg-white/10 border-white/20 hover:bg-white/20 text-white">
+                  <Button
+                    variant="secondary"
+                    className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                    onClick={() => document.getElementById('lines')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
                     <MapPinned className="h-4 w-4 mr-2" />
                     Explore live map
                   </Button>
@@ -333,7 +346,7 @@ function App() {
           </div>
         </div>
         <div className="container mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-primary-foreground/40">
-          <p>© 2024 BeatTraffic KL. Built for a smarter Malaysia.</p>
+          <p>© {new Date().getFullYear()} BeatTraffic KL. Built for a smarter Malaysia.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-accent">Twitter</a>
             <a href="#" className="hover:text-accent">Facebook</a>

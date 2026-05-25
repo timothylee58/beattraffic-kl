@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, ArrowRightLeft, TrainFront } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { blink } from '../../lib/blink';
+import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
 interface Station {
@@ -14,21 +14,28 @@ interface Station {
 }
 
 export function RoutePlanner() {
+  const { user } = useAuth();
   const [stations, setStations] = useState<Station[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(true);
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
   const [fare, setFare] = useState<number | null>(null);
+  const [buying, setBuying] = useState(false);
 
   useEffect(() => {
     fetchStations();
   }, []);
 
   const fetchStations = async () => {
+    setStationsLoading(true);
     try {
       const { data } = await blink.db.stations.list();
       setStations(data || []);
     } catch (error) {
       console.error('Error fetching stations:', error);
+      toast.error('Failed to load stations');
+    } finally {
+      setStationsLoading(false);
     }
   };
 
@@ -41,7 +48,6 @@ export function RoutePlanner() {
       toast.error('Stations cannot be the same');
       return;
     }
-    // Simple fare calculation for demo: 2.0 + distance-like logic
     const baseFare = 2.0;
     const fromIndex = stations.findIndex(s => s.id === from);
     const toIndex = stations.findIndex(s => s.id === to);
@@ -50,13 +56,13 @@ export function RoutePlanner() {
   };
 
   const buyTicket = async () => {
-    const user = await blink.auth.me();
     if (!user) {
       toast.error('Please sign in to buy a ticket');
       blink.auth.login();
       return;
     }
 
+    setBuying(true);
     try {
       const ticketId = `T-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
       await blink.db.tickets.create({
@@ -75,6 +81,8 @@ export function RoutePlanner() {
     } catch (error) {
       console.error('Error purchasing ticket:', error);
       toast.error('Failed to purchase ticket');
+    } finally {
+      setBuying(false);
     }
   };
 
@@ -99,9 +107,9 @@ export function RoutePlanner() {
               <MapPin className="h-4 w-4 text-destructive" />
               From
             </label>
-            <Select value={from} onValueChange={setFrom}>
+            <Select value={from} onValueChange={setFrom} disabled={stationsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select origin" />
+                <SelectValue placeholder={stationsLoading ? 'Loading stations…' : 'Select origin'} />
               </SelectTrigger>
               <SelectContent>
                 {stations.map(station => (
@@ -113,10 +121,11 @@ export function RoutePlanner() {
             </Select>
           </div>
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleSwap}
+            aria-label="Swap origin and destination"
             className="mb-1 rounded-full hover:bg-secondary"
           >
             <ArrowRightLeft className="h-4 w-4" />
@@ -127,9 +136,9 @@ export function RoutePlanner() {
               <MapPin className="h-4 w-4 text-primary" />
               To
             </label>
-            <Select value={to} onValueChange={setTo}>
+            <Select value={to} onValueChange={setTo} disabled={stationsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select destination" />
+                <SelectValue placeholder={stationsLoading ? 'Loading stations…' : 'Select destination'} />
               </SelectTrigger>
               <SelectContent>
                 {stations.map(station => (
@@ -142,7 +151,7 @@ export function RoutePlanner() {
           </div>
         </div>
 
-        <Button onClick={calculateFare} className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12">
+        <Button onClick={calculateFare} disabled={stationsLoading} className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12">
           <Search className="h-4 w-4 mr-2" />
           Check Fare & Routes
         </Button>
@@ -154,15 +163,16 @@ export function RoutePlanner() {
                 <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Estimated Fare</p>
                 <p className="text-3xl font-bold text-primary">RM {fare.toFixed(2)}</p>
               </div>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 onClick={buyTicket}
+                disabled={buying}
                 className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold px-8"
               >
-                Buy Ticket
+                {buying ? 'Processing…' : 'Buy Ticket'}
               </Button>
             </div>
-            <div className="border-t border-white/20 pt-4">
+            <div className="border-t border-border pt-4">
               <p className="text-sm font-medium flex items-center gap-2">
                 <TrainFront className="h-4 w-4" />
                 Next train in: <span className="text-primary font-bold">4 mins</span>
