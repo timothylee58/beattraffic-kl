@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Ticket, Clock, MapPin, QrCode as QrIcon } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Ticket, LogIn } from 'lucide-react';
+import { Card, CardContent } from '../ui/card';
+import { Button } from '../ui/button';
 import { blink } from '../../lib/blink';
 import { useAuth } from '../../hooks/useAuth';
 import QRCode from 'react-qr-code';
@@ -20,38 +21,54 @@ interface TicketData {
 export function TicketList() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<TicketData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      fetchTickets();
+  const fetchTickets = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [{ data }, { data: stations }] = await Promise.all([
+        blink.db.tickets.list({ where: { user_id: user.id }, orderBy: { created_at: 'desc' } }),
+        blink.db.stations.list(),
+      ]);
+      const stationMap = new Map(stations?.map(s => [s.id, s.name]));
+      setTickets(
+        data?.map(ticket => ({
+          ...ticket,
+          from_name: stationMap.get(ticket.from_station_id),
+          to_name: stationMap.get(ticket.to_station_id),
+        })) || []
+      );
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+      setError('Failed to load tickets. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
-  const fetchTickets = async () => {
-    try {
-      // Join with stations to get names
-      const { data } = await blink.db.tickets.list({
-        where: { user_id: user?.id },
-        orderBy: { created_at: 'desc' }
-      });
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
 
-      // Fetch station names for display
-      const { data: stations } = await blink.db.stations.list();
-      const stationMap = new Map(stations?.map(s => [s.id, s.name]));
-
-      const enrichedTickets = data?.map(ticket => ({
-        ...ticket,
-        from_name: stationMap.get(ticket.from_station_id),
-        to_name: stationMap.get(ticket.to_station_id)
-      }));
-
-      setTickets(enrichedTickets || []);
-    } catch (error) {
-      console.error('Error fetching tickets:', error);
-    }
-  };
-
-  if (!user) return null;
+  if (!user) {
+    return (
+      <Card className="bg-secondary/20 border-dashed border-2">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+          <LogIn className="h-12 w-12 text-muted-foreground opacity-20" />
+          <div className="space-y-1">
+            <p className="font-semibold text-muted-foreground">Sign in to view your tickets</p>
+            <p className="text-sm text-muted-foreground/60">Your purchased tickets will appear here.</p>
+          </div>
+          <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90">
+            Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -60,7 +77,20 @@ export function TicketList() {
         My Tickets
       </h2>
 
-      {tickets.length === 0 ? (
+      {loading && (
+        <div className="text-center py-12 text-muted-foreground text-sm">Loading tickets…</div>
+      )}
+
+      {error && !loading && (
+        <Card className="bg-destructive/10 border-destructive/30">
+          <CardContent className="py-6 text-center space-y-3">
+            <p className="text-sm text-destructive font-medium">{error}</p>
+            <Button variant="outline" size="sm" onClick={fetchTickets}>Retry</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && tickets.length === 0 ? (
         <Card className="bg-secondary/20 border-dashed border-2">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
             <Ticket className="h-12 w-12 text-muted-foreground opacity-20" />
@@ -70,7 +100,7 @@ export function TicketList() {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : !loading && !error && (
         <div className="grid md:grid-cols-2 gap-4">
           {tickets.map(ticket => (
             <Card key={ticket.id} className="overflow-hidden border-l-4 border-l-primary hover:shadow-md transition-shadow">
