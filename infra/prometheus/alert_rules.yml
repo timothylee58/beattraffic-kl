@@ -1,0 +1,18 @@
+groups:
+  - name: noc-priority-alerts
+    rules:
+      - alert: P1ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Critical service down"
+
+      - alert: P2HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 3m
+        labels:
+          severity: P2
+        annotations:
+          summary: "Sustained high latency"
