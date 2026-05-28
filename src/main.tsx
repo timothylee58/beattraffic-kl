@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { BlinkProvider } from '@blinkdotnew/react'
 import App from './App'
@@ -16,12 +17,14 @@ function getProjectId(): string {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BlinkProvider
-      projectId={getProjectId()}
-      publishableKey={import.meta.env.VITE_BLINK_PUBLISHABLE_KEY}
-    >
-      <Toaster position="top-right" />
-      <App />
-    </BlinkProvider>
+    <BrowserRouter>
+      <BlinkProvider
+        projectId={getProjectId()}
+        publishableKey={import.meta.env.VITE_BLINK_PUBLISHABLE_KEY}
+      >
+        <Toaster position="top-right" />
+        <App />
+      </BlinkProvider>
+    </BrowserRouter>
   </React.StrictMode>,
-) 
+)

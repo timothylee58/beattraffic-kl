@@ -1,29 +1,30 @@
-import React, { useState } from 'react';
-import { Train, User, LogOut, Menu, X } from 'lucide-react';
-import { Button } from '../ui/button';
-import { useAuth } from '../../hooks/useAuth';
-import { blink } from '../../lib/blink';
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Train, User, LogOut, Menu, X, Shield } from 'lucide-react'
+import { Button } from '../ui/button'
+import { useAuth } from '../../hooks/useAuth'
+import { blink } from '../../lib/blink'
 
 export function Navbar() {
-  const { user, isAuthenticated } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, isAuthenticated } = useAuth()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const navLinks = [
-    { href: '#planner', label: 'Planner' },
-    { href: '#lines', label: 'Line Intelligence' },
-    { href: '#architecture', label: 'Architecture' },
-    { href: '#roadmap', label: 'Roadmap' },
-  ];
+    { href: '/#planner', label: 'Planner' },
+    { href: '/#lines', label: 'Line Intelligence' },
+    { href: '/#architecture', label: 'Architecture' },
+    { href: '/#roadmap', label: 'Roadmap' },
+  ]
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="bg-primary p-2 rounded-lg">
             <Train className="h-6 w-6 text-primary-foreground" />
           </div>
           <span className="text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
-        </div>
+        </Link>
 
         <div className="hidden md:flex items-center gap-6">
           {navLinks.map(link => (
@@ -31,6 +32,12 @@ export function Navbar() {
               {link.label}
             </a>
           ))}
+          {isAuthenticated && (
+            <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+              <Shield className="h-3.5 w-3.5" />
+              Admin
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -75,9 +82,19 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
+            {isAuthenticated && (
+              <Link
+                to="/admin"
+                className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
+                onClick={() => setMobileOpen(false)}
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Admin Dashboard
+              </Link>
+            )}
           </div>
         </div>
       )}
     </nav>
-  );
+  )
 }

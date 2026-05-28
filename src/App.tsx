@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
 import { LiveTicker, type LineStatus } from './components/layout/LiveTicker'
 import { Footer } from './components/layout/Footer'
@@ -10,11 +11,18 @@ import { RoadmapSection } from './components/sections/RoadmapSection'
 import { RoutePlanner } from './components/features/RoutePlanner'
 import { TicketList } from './components/features/TicketList'
 import { TransitIntelligencePanel } from './components/features/TransitIntelligencePanel'
-import { CloudLightning, Cpu, MapPinned, Search, Ticket } from 'lucide-react'
+import { DelayPredictionPanel } from './components/features/DelayPredictionPanel'
+import { PersonalCommuteAssistant } from './components/features/PersonalCommuteAssistant'
+import { QRScanner } from './components/features/QRScanner'
+import AdminDashboard from './pages/AdminDashboard'
+import StationPage from './pages/StationPage'
+import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
 
-function App() {
-  const [activeTab, setActiveTab] = useState<'planner' | 'tickets'>('planner')
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
+
+function HomePage() {
+  const [activeTab, setActiveTab] = useState<Tab>('planner')
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
 
   const fetchStatus = useCallback(async () => {
@@ -48,27 +56,39 @@ function App() {
         <HeroSection onPlanRoute={handlePlanRoute} />
         <TransitIntelligencePanel />
 
-        <div id="planner" className="container -mt-16 relative z-30 pb-20">
-          <div className="flex gap-2 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border">
-            <Button
-              variant={activeTab === 'planner' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('planner')}
-              className="rounded-lg h-12 px-8 font-bold"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              Route Planner
-            </Button>
-            <Button
-              variant={activeTab === 'tickets' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('tickets')}
-              className="rounded-lg h-12 px-8 font-bold"
-            >
-              <Ticket className="h-4 w-4 mr-2" />
-              My Tickets
-            </Button>
+        {/* AI Delay Prediction + Personal Commute Assistant side panel */}
+        <div id="planner" className="container pb-8 -mt-6">
+          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+            <DelayPredictionPanel />
+            <PersonalCommuteAssistant />
+          </div>
+        </div>
+
+        {/* Main Tab Area */}
+        <div className="container relative z-30 pb-20">
+          <div className="flex gap-1.5 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
+            {([
+              { id: 'planner', label: 'Route Planner', icon: <Search className="h-4 w-4" /> },
+              { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
+              { id: 'scanner', label: 'QR Scanner', icon: <QrCode className="h-4 w-4" /> },
+              { id: 'assistant', label: 'Commute AI', icon: <Sparkles className="h-4 w-4" /> },
+            ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
+              <Button
+                key={tab.id}
+                variant={activeTab === tab.id ? 'default' : 'ghost'}
+                onClick={() => setActiveTab(tab.id)}
+                className="rounded-lg h-11 px-5 font-bold"
+              >
+                {tab.icon}
+                <span className="ml-2">{tab.label}</span>
+              </Button>
+            ))}
           </div>
 
-          {activeTab === 'planner' ? <RoutePlanner /> : <TicketList />}
+          {activeTab === 'planner' && <RoutePlanner />}
+          {activeTab === 'tickets' && <TicketList />}
+          {activeTab === 'scanner' && <QRScanner />}
+          {activeTab === 'assistant' && <PersonalCommuteAssistant />}
 
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
@@ -98,4 +118,12 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/station/:stationId" element={<StationPage />} />
+    </Routes>
+  )
+}

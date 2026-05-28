@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, AlertTriangle, Database, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Activity, AlertTriangle, ChevronRight, Database, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { fetchIncidents, fetchStationsFromDosm } from '../../lib/dosmApi'
 import { predictCrowdLevel } from '../../lib/predictiveEngine'
@@ -43,16 +44,23 @@ export function TransitIntelligencePanel() {
         <CardContent>
           <div className="space-y-3">
             {forecasts.map((forecast) => (
-              <div key={forecast.stationId} className="flex items-center justify-between rounded-lg border p-3">
+              <Link
+                key={forecast.stationId}
+                to={`/station/${forecast.stationId}`}
+                className="flex items-center justify-between rounded-lg border p-3 hover:bg-secondary/50 transition-colors group"
+              >
                 <div>
                   <p className="font-semibold">{stations.find((station) => station.id === forecast.stationId)?.name ?? forecast.stationId}</p>
                   <p className="text-xs text-muted-foreground">{forecast.line}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold">{forecast.score}/100</p>
-                  <p className="text-xs uppercase text-muted-foreground">{forecast.label}</p>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-sm font-bold">{forecast.score}/100</p>
+                    <p className="text-xs uppercase text-muted-foreground">{forecast.label}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
