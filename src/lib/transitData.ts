@@ -6,6 +6,7 @@ export type TransitLineCode =
   | 'LRT_SRI_PETALING'
   | 'MONORAIL'
   | 'BRT_SUNWAY'
+  | 'KTM_KOMUTER'
 
 export interface TransitStation {
   id: string
