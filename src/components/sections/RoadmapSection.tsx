@@ -10,6 +10,10 @@ const ROADMAP = [
     detail: 'Store GTFS fragments + walking graphs for reliable routing even without data.',
   },
   {
+    title: 'Shah Alam Line Integration',
+    detail: 'First-mile/last-mile BRT data pipeline — GTFS feed, station mapping, and fare integration underway as the line launches.',
+  },
+  {
     title: 'State-by-State Expansion',
     detail: 'Johor → Penang → Sarawak with localized operator feeds and fare rules.',
   },

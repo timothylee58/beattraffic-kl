@@ -6,6 +6,7 @@ export interface LineStatus {
   status: string
   waitingTime: number
   crowdLevel: string
+  dataAvailable?: boolean
 }
 
 interface LiveTickerProps {
@@ -25,10 +26,16 @@ export function LiveTicker({ lineStatus }: LiveTickerProps) {
             {lineStatus.map((s, i) => (
               <div key={i} className="flex items-center gap-2 text-xs shrink-0">
                 <span className="font-bold">{s.line}:</span>
-                <span className={s.status === 'Normal' ? 'text-green-600' : 'text-destructive font-bold'}>
-                  {s.status}
-                </span>
-                <span className="text-muted-foreground">• {s.waitingTime}m wait</span>
+                {s.dataAvailable === false ? (
+                  <span className="text-muted-foreground italic">Data coming soon</span>
+                ) : (
+                  <>
+                    <span className={s.status === 'Normal' ? 'text-green-600' : 'text-destructive font-bold'}>
+                      {s.status}
+                    </span>
+                    <span className="text-muted-foreground">• {s.waitingTime}m wait</span>
+                  </>
+                )}
               </div>
             ))}
           </Fragment>
