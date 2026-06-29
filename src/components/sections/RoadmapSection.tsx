@@ -10,6 +10,10 @@ const ROADMAP = [
     detail: 'Store GTFS fragments + walking graphs for reliable routing even without data.',
   },
   {
+    title: 'Shah Alam Line Integration',
+    detail: 'First-mile/last-mile BRT data pipeline — GTFS feed, station mapping, and fare integration underway as the line launches.',
+  },
+  {
     title: 'State-by-State Expansion',
     detail: 'Johor → Penang → Sarawak with localized operator feeds and fare rules.',
   },
@@ -22,7 +26,7 @@ export function RoadmapSection() {
         <div className="text-center space-y-4 mb-12">
           <h2 className="text-3xl font-bold">Elevate the App</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            AI crowd prediction, offline routing, and state-by-state expansion already mapped on the roadmap.
+            AI crowd prediction, offline routing, Shah Alam Line integration, and state-by-state expansion already mapped on the roadmap.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
