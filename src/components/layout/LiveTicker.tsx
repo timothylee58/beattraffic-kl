@@ -23,8 +23,8 @@ export function LiveTicker({ lineStatus }: LiveTickerProps) {
               <Activity className="h-3 w-3" />
               Live Network
             </div>
-            {lineStatus.map((s, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs shrink-0">
+            {lineStatus.map((s) => (
+              <div key={`${copy}-${s.line}`} className="flex items-center gap-2 text-xs shrink-0">
                 <span className="font-bold">{s.line}:</span>
                 {s.dataAvailable === false ? (
                   <span className="text-muted-foreground italic">Data coming soon</span>
