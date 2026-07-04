@@ -6,7 +6,11 @@ import { fetchIncidents, fetchStationsFromDosm } from '../../lib/dosmApi'
 import { predictCrowdLevel } from '../../lib/predictiveEngine'
 import type { CrowdForecast, TransitIncident, TransitStation } from '../../lib/transitData'
 
-export function TransitIntelligencePanel() {
+interface TransitIntelligencePanelProps {
+  embedded?: boolean
+}
+
+export function TransitIntelligencePanel({ embedded = false }: TransitIntelligencePanelProps) {
   const [stations, setStations] = useState<TransitStation[]>([])
   const [incidents, setIncidents] = useState<TransitIncident[]>([])
   const [forecasts, setForecasts] = useState<CrowdForecast[]>([])
@@ -27,8 +31,8 @@ export function TransitIntelligencePanel() {
     [forecasts],
   )
 
-  return (
-    <section className="container pb-12 space-y-4">
+  const content = (
+    <div className="space-y-4">
       <h2 className="text-2xl font-bold text-primary">Real-Time Transit Intelligence</h2>
       <div className="grid md:grid-cols-4 gap-4">
         <MetricCard icon={<Database className="h-4 w-4" />} label="Stations Ingested" value={String(stations.length)} />
@@ -65,8 +69,12 @@ export function TransitIntelligencePanel() {
           </div>
         </CardContent>
       </Card>
-    </section>
+    </div>
   )
+
+  if (embedded) return content
+
+  return <section className="container pb-12">{content}</section>
 }
 
 function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

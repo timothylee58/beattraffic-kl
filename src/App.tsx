@@ -8,7 +8,6 @@ import { FeaturesSection } from './components/sections/FeaturesSection'
 import { LineIntelligenceSection } from './components/sections/LineIntelligenceSection'
 import { ArchitectureSection } from './components/sections/ArchitectureSection'
 import { RoadmapSection } from './components/sections/RoadmapSection'
-import { RoutePlanner } from './components/features/RoutePlanner'
 import { TicketList } from './components/features/TicketList'
 import { TransitIntelligencePanel } from './components/features/TransitIntelligencePanel'
 import { DelayPredictionPanel } from './components/features/DelayPredictionPanel'
@@ -16,13 +15,13 @@ import { PersonalCommuteAssistant } from './components/features/PersonalCommuteA
 import { QRScanner } from './components/features/QRScanner'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
+import { CloudLightning, Cpu, MapPinned, QrCode, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
+type Tab = 'tickets' | 'scanner' | 'assistant'
 
 function HomePage() {
-  const [activeTab, setActiveTab] = useState<Tab>('planner')
+  const [activeTab, setActiveTab] = useState<Tab>('tickets')
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
 
   const fetchStatus = useCallback(async () => {
@@ -43,7 +42,6 @@ function HomePage() {
   }, [fetchStatus])
 
   const handlePlanRoute = () => {
-    setActiveTab('planner')
     document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -54,21 +52,31 @@ function HomePage() {
       <main>
         <LiveTicker lineStatus={lineStatus} />
         <HeroSection onPlanRoute={handlePlanRoute} />
-        <TransitIntelligencePanel />
 
-        {/* AI Delay Prediction + Personal Commute Assistant side panel */}
-        <div id="planner" className="container pb-8 -mt-6">
-          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-            <DelayPredictionPanel />
-            <PersonalCommuteAssistant />
+        {/* Commuter cockpit */}
+        <section className="relative z-20 bg-background py-12 sm:py-16">
+          <div className="container space-y-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent">Live commuter cockpit</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl">Know the network before it surprises you.</h2>
+              </div>
+              <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+                Delay prediction, crowd forecasting, and saved commute suggestions are arranged as one responsive dashboard for desktop and mobile.
+              </p>
+            </div>
+            <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+              <DelayPredictionPanel />
+              <PersonalCommuteAssistant />
+            </div>
+            <TransitIntelligencePanel embedded />
           </div>
-        </div>
+        </section>
 
-        {/* Main Tab Area */}
+        {/* Mobile app actions */}
         <div className="container relative z-30 pb-20">
-          <div className="flex gap-1.5 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
+          <div className="mb-6 flex w-full flex-wrap gap-1.5 rounded-2xl border bg-white p-1 shadow-lg sm:w-fit sm:rounded-xl">
             {([
-              { id: 'planner', label: 'Route Planner', icon: <Search className="h-4 w-4" /> },
               { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
               { id: 'scanner', label: 'QR Scanner', icon: <QrCode className="h-4 w-4" /> },
               { id: 'assistant', label: 'Commute AI', icon: <Sparkles className="h-4 w-4" /> },
@@ -77,15 +85,14 @@ function HomePage() {
                 key={tab.id}
                 variant={activeTab === tab.id ? 'default' : 'ghost'}
                 onClick={() => setActiveTab(tab.id)}
-                className="rounded-lg h-11 px-5 font-bold"
+                className="h-11 flex-1 rounded-xl px-4 font-bold sm:flex-none sm:px-5"
               >
                 {tab.icon}
-                <span className="ml-2">{tab.label}</span>
+                <span className="hidden min-[420px]:inline">{tab.label}</span>
               </Button>
             ))}
           </div>
 
-          {activeTab === 'planner' && <RoutePlanner />}
           {activeTab === 'tickets' && <TicketList />}
           {activeTab === 'scanner' && <QRScanner />}
           {activeTab === 'assistant' && <PersonalCommuteAssistant />}

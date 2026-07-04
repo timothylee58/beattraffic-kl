@@ -18,7 +18,12 @@ interface Station {
   line: string
 }
 
-export function RoutePlanner() {
+interface RoutePlannerProps {
+  className?: string
+  variant?: 'default' | 'hero'
+}
+
+export function RoutePlanner({ className = '', variant = 'default' }: RoutePlannerProps) {
   const { user } = useAuth()
   const [stations, setStations] = useState<Station[]>([])
   const [stationsLoading, setStationsLoading] = useState(true)
@@ -96,17 +101,24 @@ export function RoutePlanner() {
 
   const alternatives = getAlternativeRoutes(routeDelay)
 
+  const isHero = variant === 'hero'
+
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
-      <Card className="shadow-xl border-t-4 border-t-primary animate-fade-in">
+    <div className={`w-full ${isHero ? 'max-w-none' : 'max-w-2xl mx-auto'} space-y-4 ${className}`}>
+      <Card className={`${isHero ? 'border-white/20 bg-white/95 shadow-2xl backdrop-blur-xl' : 'shadow-xl border-t-4 border-t-primary'} animate-fade-in`}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <TrainFront className="h-5 w-5 text-primary" />
-            Plan Your Journey
+            {isHero ? 'Command Your Commute' : 'Plan Your Journey'}
           </CardTitle>
+          {isHero && (
+            <p className="text-sm text-muted-foreground">
+              Pick a route and let BeatTraffic KL check fare, delay risk, and smarter alternatives.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-[1fr_auto_1fr] items-end gap-4">
+          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-destructive" />
@@ -131,7 +143,7 @@ export function RoutePlanner() {
               size="icon"
               onClick={() => { const t = from; setFrom(to); setTo(t) }}
               aria-label="Swap origin and destination"
-              className="mb-1 rounded-full hover:bg-secondary"
+              className="mx-auto rounded-full hover:bg-secondary md:mb-1"
             >
               <ArrowRightLeft className="h-4 w-4" />
             </Button>
