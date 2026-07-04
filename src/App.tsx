@@ -18,6 +18,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
 import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
+import { Reveal } from './components/motion/Reveal'
 
 type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
 
@@ -66,7 +67,7 @@ function HomePage() {
 
         {/* Main Tab Area */}
         <div className="container relative z-30 pb-20">
-          <div className="flex gap-1.5 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
+          <div className="flex gap-1.5 mb-6 bg-white p-1.5 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
             {([
               { id: 'planner', label: 'Route Planner', icon: <Search className="h-4 w-4" /> },
               { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
@@ -77,7 +78,7 @@ function HomePage() {
                 key={tab.id}
                 variant={activeTab === tab.id ? 'default' : 'ghost'}
                 onClick={() => setActiveTab(tab.id)}
-                className="rounded-lg h-11 px-5 font-bold"
+                className={`rounded-lg h-11 px-5 font-bold transition-all ${activeTab === tab.id ? 'shadow-[0_0_20px_-4px_hsl(var(--primary))]' : ''}`}
               >
                 {tab.icon}
                 <span className="ml-2">{tab.label}</span>
@@ -85,24 +86,30 @@ function HomePage() {
             ))}
           </div>
 
-          {activeTab === 'planner' && <RoutePlanner />}
-          {activeTab === 'tickets' && <TicketList />}
-          {activeTab === 'scanner' && <QRScanner />}
-          {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+          <div key={activeTab} className="animate-fade-in">
+            {activeTab === 'planner' && <RoutePlanner />}
+            {activeTab === 'tickets' && <TicketList />}
+            {activeTab === 'scanner' && <QRScanner />}
+            {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+          </div>
 
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
               { label: 'Smart Route Planner', value: 'GTFS-aware ETA + fastest transfers', icon: <MapPinned className="h-5 w-5 text-primary" /> },
               { label: 'Line Feature Engine', value: 'Dynamic UI per line USP', icon: <Cpu className="h-5 w-5 text-primary" /> },
               { label: 'Offline Cache', value: 'Routes + stations stored for no-signal zones', icon: <CloudLightning className="h-5 w-5 text-primary" /> },
-            ].map((item) => (
-              <div key={item.label} className="p-5 border rounded-2xl bg-card shadow-sm space-y-2">
-                <div className="flex items-center gap-3 font-semibold text-primary">
-                  {item.icon}
-                  {item.label}
+            ].map((item, index) => (
+              <Reveal key={item.label} delay={index * 0.08}>
+                <div className="group p-5 border rounded-2xl bg-card shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 space-y-2">
+                  <div className="flex items-center gap-3 font-semibold text-primary">
+                    <span className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:[&>svg]:text-primary-foreground transition-colors">
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{item.value}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">{item.value}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
