@@ -17,19 +17,26 @@ export function Navbar() {
   ]
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative">
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-primary p-2 rounded-lg">
-            <Train className="h-6 w-6 text-primary-foreground" />
+        <Link to="/" className="flex items-center gap-2 group">
+          <div className="bg-primary p-2 rounded-lg relative overflow-hidden">
+            <span className="absolute inset-0 bg-accent/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Train className="h-6 w-6 text-primary-foreground relative" />
           </div>
           <span className="text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
           {navLinks.map(link => (
-            <a key={link.href} href={link.href} className="text-sm font-medium hover:text-primary transition-colors">
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium hover:text-primary transition-colors relative group py-1"
+            >
               {link.label}
+              <span className="absolute left-0 -bottom-0.5 h-px w-0 bg-gradient-to-r from-accent to-primary group-hover:w-full transition-all duration-300" />
             </a>
           ))}
           {isAuthenticated && (
