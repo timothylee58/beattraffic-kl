@@ -26,7 +26,7 @@ export function ArchitectureSection() {
   ]
 
   return (
-    <section id="architecture" className="py-20 bg-secondary/30 relative overflow-hidden">
+    <section id="architecture" className="py-14 sm:py-20 bg-secondary/30 relative overflow-hidden">
       <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent hidden lg:block" />
       <div className="container relative">
         <Reveal>

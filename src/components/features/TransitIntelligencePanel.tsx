@@ -41,7 +41,7 @@ export function TransitIntelligencePanel() {
       <Reveal>
         <h2 className="text-2xl font-bold text-primary">Real-Time Transit Intelligence</h2>
       </Reveal>
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Reveal delay={0}>
           <MetricCard icon={<Database className="h-4 w-4" />} label="Stations Ingested" value={stations.length} accent="from-primary/15 to-primary/5" />
         </Reveal>

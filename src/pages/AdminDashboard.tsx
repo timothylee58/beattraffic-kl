@@ -72,18 +72,18 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-primary text-primary-foreground">
-        <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/10 p-2 rounded-lg">
+        <div className="container flex flex-wrap items-center justify-between gap-3 py-3 sm:h-16 sm:py-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-white/10 p-2 rounded-lg shrink-0">
               <Shield className="h-5 w-5" />
             </div>
-            <div>
-              <p className="font-bold text-sm">BeatTraffic KL — Operator Dashboard</p>
-              <p className="text-xs text-primary-foreground/60">Real-time network intelligence</p>
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate">BeatTraffic KL — Operator Dashboard</p>
+              <p className="text-xs text-primary-foreground/60 truncate">Real-time network intelligence</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-primary-foreground/60">{user?.email}</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden md:inline text-xs text-primary-foreground/60 truncate max-w-[160px]">{user?.email}</span>
             <Button size="sm" variant="ghost" className="text-white hover:bg-white/10" onClick={() => navigate('/')}>
               ← Back to App
             </Button>
@@ -91,9 +91,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="container py-8">
+      <div className="container py-6 sm:py-8">
         {/* KPI Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
           {[
             { label: 'Total Tickets', value: tickets.length, icon: <Ticket className="h-5 w-5" />, color: 'text-primary' },
             { label: 'Active Tickets', value: activeTickets, icon: <CheckCircle2 className="h-5 w-5" />, color: 'text-green-600' },

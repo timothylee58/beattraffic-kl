@@ -104,7 +104,7 @@ export function TicketList() {
         <div className="grid md:grid-cols-2 gap-4">
           {tickets.map(ticket => (
             <Card key={ticket.id} className="overflow-hidden border-l-4 border-l-primary hover:shadow-md transition-shadow">
-              <CardContent className="p-0 flex">
+              <CardContent className="p-0 flex flex-col sm:flex-row">
                 <div className="flex-1 p-6 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -129,7 +129,7 @@ export function TicketList() {
                   </div>
                 </div>
 
-                <div className="w-32 bg-secondary flex flex-col items-center justify-center p-4 gap-2 border-l">
+                <div className="sm:w-32 bg-secondary flex flex-row sm:flex-col items-center justify-center p-4 gap-3 sm:gap-2 border-t sm:border-t-0 sm:border-l">
                   <div className="bg-white p-1 rounded shadow-sm">
                     <QRCode value={ticket.qr_code} size={64} />
                   </div>

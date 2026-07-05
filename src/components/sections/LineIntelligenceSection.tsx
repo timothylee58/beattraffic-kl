@@ -23,7 +23,7 @@ const LINES: Line[] = [
 
 export function LineIntelligenceSection() {
   return (
-    <section id="lines" className="py-20 bg-background relative">
+    <section id="lines" className="py-14 sm:py-20 bg-background relative">
       <div className="container">
         <Reveal>
           <div className="text-center space-y-4 mb-12">

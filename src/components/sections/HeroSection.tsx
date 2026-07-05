@@ -16,14 +16,14 @@ const PULSE_LINES = [
 
 export function HeroSection({ onPlanRoute }: HeroSectionProps) {
   return (
-    <section className="relative min-h-[600px] flex items-center justify-center overflow-hidden bg-[#031733]">
+    <section className="relative min-h-[560px] sm:min-h-[600px] flex items-center justify-center overflow-hidden bg-[#031733]">
       <div className="absolute inset-0 z-0 bg-mesh-gradient opacity-80" />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#031733]/20 via-[#031733]/70 to-[#031733]" />
       <RailBackdrop className="absolute inset-0 z-[1] h-full w-full opacity-70" />
       <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl animate-float" />
       <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-primary/30 blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
 
-      <div className="container relative z-20 text-white space-y-8 py-16">
+      <div className="container relative z-20 text-white space-y-8 py-12 sm:py-16">
         <div className="grid md:grid-cols-[1.2fr_0.8fr] gap-10 items-center">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -31,18 +31,18 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="space-y-5 text-center mx-auto md:text-left md:mx-0"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-panel text-xs font-bold uppercase tracking-widest">
-              <span className="relative flex h-2 w-2">
+            <div className="inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded-full glass-panel text-[11px] sm:text-xs font-bold uppercase tracking-widest text-left sm:text-center">
+              <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-accent animate-glow-pulse" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
               </span>
-              <Info className="h-3 w-3" />
-              Moovit-beating intelligence for Malaysia
+              <Info className="h-3 w-3 shrink-0" />
+              <span>Moovit-beating intelligence for Malaysia</span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold leading-tight drop-shadow-lg">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold leading-tight drop-shadow-lg">
               BeatTraffic KL — <span className="text-gradient-brand italic">line-aware transit</span> that actually gets you there.
             </h1>
-            <p className="text-lg text-white/70 max-w-xl drop-shadow">
+            <p className="text-base sm:text-lg text-white/70 max-w-xl drop-shadow">
               Smart route planning, crowd prediction, and offline routing built on OpenStreetMap + MapLibre + GTFS.
               Every line has its own AI-driven advantage so you arrive faster and less stressed.
             </p>

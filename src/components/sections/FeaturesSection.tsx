@@ -4,7 +4,7 @@ import { Reveal } from '../motion/Reveal'
 
 export function FeaturesSection() {
   return (
-    <section className="bg-secondary/30 py-20 relative overflow-hidden">
+    <section className="bg-secondary/30 py-14 sm:py-20 relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 h-64 w-[120%] bg-gradient-to-b from-primary/5 to-transparent rounded-full blur-3xl" />
       <div className="container relative">
         <Reveal>

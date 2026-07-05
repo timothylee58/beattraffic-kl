@@ -22,7 +22,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         projectId={getProjectId()}
         publishableKey={import.meta.env.VITE_BLINK_PUBLISHABLE_KEY}
       >
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-center"
+          containerStyle={{ top: 84 }}
+          toastOptions={{ style: { maxWidth: '90vw' } }}
+        />
         <App />
       </BlinkProvider>
     </BrowserRouter>

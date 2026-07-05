@@ -22,7 +22,7 @@ const ROADMAP = [
 
 export function RoadmapSection() {
   return (
-    <section id="roadmap" className="py-20 bg-background relative">
+    <section id="roadmap" className="py-14 sm:py-20 bg-background relative">
       <div className="container">
         <Reveal>
           <div className="text-center space-y-4 mb-12">

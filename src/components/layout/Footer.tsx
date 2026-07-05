@@ -3,7 +3,7 @@ import { Button } from '../ui/button'
 
 export function Footer() {
   return (
-    <footer className="relative bg-[#031733] text-primary-foreground py-16 overflow-hidden">
+    <footer className="relative bg-[#031733] text-primary-foreground py-12 sm:py-16 overflow-hidden">
       <div className="absolute inset-0 bg-mesh-gradient opacity-25" />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
       <div className="container relative grid md:grid-cols-4 gap-12">
