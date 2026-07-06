@@ -20,10 +20,12 @@ import StationPage from './pages/StationPage'
 import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
+import { useLanguage } from './contexts/LanguageContext'
 
 type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
 
 function HomePage() {
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState<Tab>('planner')
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
 
@@ -70,11 +72,11 @@ function HomePage() {
         <div className="container relative z-30 pb-20">
           <div className="flex gap-1.5 mb-6 bg-white p-1.5 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
             {([
-              { id: 'planner', label: 'Route Planner', icon: <Search className="h-4 w-4" /> },
-              { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
-              { id: 'scanner', label: 'QR Scanner', icon: <QrCode className="h-4 w-4" /> },
-              { id: 'assistant', label: 'Commute AI', icon: <Sparkles className="h-4 w-4" /> },
-            ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
+              { id: 'planner' as const, label: t.tabs.planner, icon: <Search className="h-4 w-4" /> },
+              { id: 'tickets' as const, label: t.tabs.tickets, icon: <Ticket className="h-4 w-4" /> },
+              { id: 'scanner' as const, label: t.tabs.scanner, icon: <QrCode className="h-4 w-4" /> },
+              { id: 'assistant' as const, label: t.tabs.assistant, icon: <Sparkles className="h-4 w-4" /> },
+            ]).map(tab => (
               <Button
                 key={tab.id}
                 variant={activeTab === tab.id ? 'default' : 'ghost'}
@@ -104,19 +106,19 @@ function HomePage() {
 
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
-              { label: 'Smart Route Planner', value: 'GTFS-aware ETA + fastest transfers', icon: <MapPinned className="h-5 w-5 text-primary" /> },
-              { label: 'Line Feature Engine', value: 'Dynamic UI per line USP', icon: <Cpu className="h-5 w-5 text-primary" /> },
-              { label: 'Offline Cache', value: 'Routes + stations stored for no-signal zones', icon: <CloudLightning className="h-5 w-5 text-primary" /> },
+              { icon: <MapPinned className="h-5 w-5 text-primary" /> },
+              { icon: <Cpu className="h-5 w-5 text-primary" /> },
+              { icon: <CloudLightning className="h-5 w-5 text-primary" /> },
             ].map((item, index) => (
-              <Reveal key={item.label} delay={index * 0.08}>
+              <Reveal key={t.highlights[index].title} delay={index * 0.08}>
                 <div className="group p-5 border rounded-2xl bg-card shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 space-y-2">
                   <div className="flex items-center gap-3 font-semibold text-primary">
                     <span className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:[&>svg]:text-primary-foreground transition-colors">
                       {item.icon}
                     </span>
-                    {item.label}
+                    {t.highlights[index].title}
                   </div>
-                  <p className="text-sm text-muted-foreground">{item.value}</p>
+                  <p className="text-sm text-muted-foreground">{t.highlights[index].description}</p>
                 </div>
               </Reveal>
             ))}

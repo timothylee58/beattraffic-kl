@@ -5,17 +5,20 @@ import { Train, User, LogOut, Menu, X, Shield } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useAuth } from '../../hooks/useAuth'
 import { blink } from '../../lib/blink'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { EASE_OUT_EXPO, slideDown } from '../motion/variants'
 
 export function Navbar() {
   const { user, isAuthenticated } = useAuth()
+  const { t } = useLanguage()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const navLinks = [
-    { href: '/#planner', label: 'Planner' },
-    { href: '/#lines', label: 'Line Intelligence' },
-    { href: '/#architecture', label: 'Architecture' },
-    { href: '/#roadmap', label: 'Roadmap' },
+    { href: '/#planner', label: t.nav.planner },
+    { href: '/#lines', label: t.nav.lineIntelligence },
+    { href: '/#architecture', label: t.nav.architecture },
+    { href: '/#roadmap', label: t.nav.roadmap },
   ]
 
   return (
@@ -26,18 +29,18 @@ export function Navbar() {
       className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative"
     >
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between gap-2">
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link to="/" className="flex items-center gap-2 group">
             <div className="bg-primary p-2 rounded-lg relative overflow-hidden">
               <span className="absolute inset-0 bg-accent/40 opacity-0 group-hover:opacity-100 transition-opacity" />
               <Train className="h-6 w-6 text-primary-foreground relative" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
+            <span className="text-lg sm:text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
           </Link>
         </motion.div>
 
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-5">
           {navLinks.map((link, index) => (
             <motion.a
               key={link.href}
@@ -55,27 +58,28 @@ export function Navbar() {
           {isAuthenticated && (
             <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
               <Shield className="h-3.5 w-3.5" />
-              Admin
+              {t.nav.admin}
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <LanguageSwitcher />
           {isAuthenticated ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden sm:flex items-center gap-2">
                 <User className="h-4 w-4" />
-                <span className="text-sm font-medium">{user?.displayName || user?.email}</span>
+                <span className="text-sm font-medium max-w-[8rem] truncate">{user?.displayName || user?.email}</span>
               </div>
               <Button variant="ghost" size="sm" onClick={() => blink.auth.logout()}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t.nav.logout}</span>
               </Button>
             </div>
           ) : (
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-              <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90">
-                Sign In
+              <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90" size="sm">
+                {t.nav.signIn}
               </Button>
             </motion.div>
           )}
@@ -125,7 +129,7 @@ export function Navbar() {
                   onClick={() => setMobileOpen(false)}
                 >
                   <Shield className="h-3.5 w-3.5" />
-                  Admin Dashboard
+                  {t.nav.admin}
                 </Link>
               )}
             </motion.div>
