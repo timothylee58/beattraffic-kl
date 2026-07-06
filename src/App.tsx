@@ -14,18 +14,22 @@ import { TicketList } from './components/features/TicketList'
 import { TransitIntelligencePanel } from './components/features/TransitIntelligencePanel'
 import { DelayPredictionPanel } from './components/features/DelayPredictionPanel'
 import { PersonalCommuteAssistant } from './components/features/PersonalCommuteAssistant'
-import { QRScanner } from './components/features/QRScanner'
+import { ScanHub } from './components/features/ScanHub'
+import { CommuteAIAgent } from './components/features/CommuteAIAgent'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
+import { CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
 import { useLanguage } from './contexts/LanguageContext'
+import { useAgent } from './contexts/AgentContext'
+import type { ScanInsight } from './types/agent'
 
 type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
 
 function HomePage() {
   const { t } = useLanguage()
+  const { sendMessage } = useAgent()
   const [activeTab, setActiveTab] = useState<Tab>('planner')
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
 
@@ -51,6 +55,14 @@ function HomePage() {
     document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const handleAskAi = (insight: ScanInsight) => {
+    setActiveTab('assistant')
+    document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
+    void sendMessage(
+      `I just scanned a ${insight.documentType} (${insight.source}). Summary: ${insight.summary}. What should I do next to beat the jam?`,
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans">
       <Navbar />
@@ -69,12 +81,12 @@ function HomePage() {
         </div>
 
         {/* Main Tab Area */}
-        <div className="container relative z-30 pb-20">
-          <div className="flex gap-1.5 mb-6 bg-white p-1.5 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
+        <div className="container relative z-30 pb-20 max-w-6xl">
+          <div className="flex gap-1.5 mb-6 bg-white p-1.5 rounded-xl shadow-lg w-fit mx-auto border flex-wrap">
             {([
               { id: 'planner' as const, label: t.tabs.planner, icon: <Search className="h-4 w-4" /> },
               { id: 'tickets' as const, label: t.tabs.tickets, icon: <Ticket className="h-4 w-4" /> },
-              { id: 'scanner' as const, label: t.tabs.scanner, icon: <QrCode className="h-4 w-4" /> },
+              { id: 'scanner' as const, label: t.tabs.scanner, icon: <ScanText className="h-4 w-4" /> },
               { id: 'assistant' as const, label: t.tabs.assistant, icon: <Sparkles className="h-4 w-4" /> },
             ]).map(tab => (
               <Button
@@ -99,8 +111,16 @@ function HomePage() {
             >
               {activeTab === 'planner' && <RoutePlanner />}
               {activeTab === 'tickets' && <TicketList />}
-              {activeTab === 'scanner' && <QRScanner />}
-              {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+              {(activeTab === 'scanner' || activeTab === 'assistant') && (
+                <div className="grid lg:grid-cols-2 gap-6 items-start">
+                  <div className={activeTab === 'assistant' ? 'hidden lg:block' : ''}>
+                    <ScanHub onAskAi={handleAskAi} />
+                  </div>
+                  <div className={activeTab === 'scanner' ? 'hidden lg:block' : ''}>
+                    <CommuteAIAgent />
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
 

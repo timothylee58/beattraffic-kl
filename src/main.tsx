@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { BlinkProvider } from '@blinkdotnew/react'
 import { LanguageProvider } from './contexts/LanguageContext'
+import { AgentProvider } from './contexts/AgentContext'
 import App from './App'
 import './index.css'
 
@@ -24,8 +25,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         publishableKey={import.meta.env.VITE_BLINK_PUBLISHABLE_KEY}
       >
         <LanguageProvider>
-          <Toaster position="top-right" />
-          <App />
+          <AgentProvider>
+            <Toaster position="top-right" />
+            <App />
+          </AgentProvider>
         </LanguageProvider>
       </BlinkProvider>
     </BrowserRouter>

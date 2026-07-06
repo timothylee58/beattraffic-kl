@@ -56,6 +56,51 @@ export interface Translations {
     scanner: string
     assistant: string
   }
+  scanner: {
+    title: string
+    subtitle: string
+    qrTab: string
+    ocrTab: string
+    qrHint: string
+    ocrHint: string
+    scanCamera: string
+    cameraUnsupported: string
+    enterCode: string
+    captureSign: string
+    uploadImage: string
+    runOcr: string
+    qrAlign: string
+    ocrAlign: string
+    cancel: string
+    manualPlaceholder: string
+    validate: string
+    validating: string
+    ocrProcessing: string
+    validTicket: string
+    ocrComplete: string
+    failed: string
+    ticketId: string
+    from: string
+    to: string
+    fare: string
+    askAi: string
+    scanAnother: string
+    tryAgain: string
+    signInHint: string
+    cameraDenied: string
+    ticketNotFound: string
+    validationFailed: string
+    ocrFailed: string
+  }
+  agent: {
+    title: string
+    subtitle: string
+    signInPrompt: string
+    scanContext: string
+    clearScans: string
+    emptyState: string
+    inputPlaceholder: string
+  }
   highlights: {
     title: string
     description: string
