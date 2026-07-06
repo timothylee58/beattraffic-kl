@@ -15,6 +15,7 @@ export interface LineTranslation {
 export interface Translations {
   meta: {
     title: string
+    brandName: string
     description: string
   }
   nav: {

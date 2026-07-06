@@ -110,7 +110,7 @@ export function QRScanner() {
           <div className="space-y-3">
             <div className="border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-4 text-muted-foreground">
               <Camera className="h-10 w-10 opacity-30" />
-              <p className="text-sm text-center">Point your camera at a BeatTraffic ticket QR code</p>
+              <p className="text-sm text-center">Point your camera at a Beat KL traffic ticket QR code</p>
             </div>
             <div className="flex gap-2">
               {CAMERA_SUPPORTED ? (

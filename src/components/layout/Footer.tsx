@@ -15,7 +15,7 @@ export function Footer() {
             <div className="bg-accent/20 p-1.5 rounded-lg">
               <Train className="h-7 w-7 text-accent" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">BeatTraffic KL</span>
+            <span className="text-2xl font-bold tracking-tight">{t.meta.brandName}</span>
           </div>
           <p className="text-sm text-primary-foreground/60 leading-relaxed">{t.footer.tagline}</p>
           <div className="flex items-center gap-1.5">
@@ -56,7 +56,7 @@ export function Footer() {
         </div>
       </div>
       <div className="container relative mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-primary-foreground/40">
-        <p>© {new Date().getFullYear()} BeatTraffic KL. {t.footer.copyright}</p>
+        <p>© {new Date().getFullYear()} {t.meta.brandName}. {t.footer.copyright}</p>
         <div className="flex gap-6">
           <a href="#" className="hover:text-accent">Twitter</a>
           <a href="#" className="hover:text-accent">Facebook</a>

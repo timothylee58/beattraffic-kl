@@ -36,7 +36,7 @@ export function Navbar() {
               <span className="absolute inset-0 bg-accent/40 opacity-0 group-hover:opacity-100 transition-opacity" />
               <Train className="h-6 w-6 text-primary-foreground relative" />
             </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
+            <span className="text-lg sm:text-xl font-bold tracking-tight text-primary">{t.meta.brandName}</span>
           </Link>
         </motion.div>
 

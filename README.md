@@ -1,6 +1,6 @@
-# BeatTraffic KL
+# Beat KL traffic
 
-**Line-aware transit intelligence for Klang Valley** — real-time crowd prediction, AI delay forecasting, smart alternative routing, digital ticketing, and an autonomous NOC operations layer, all built on open data (DOSM, GTFS, OpenStreetMap).
+**Alleviating traffic jams across Klang Valley** — line-aware transit intelligence with real-time crowd prediction, AI delay forecasting, smart alternative routing, and digital ticketing, all built on open data (DOSM, GTFS, OpenStreetMap).
 
 ---
 
@@ -366,4 +366,4 @@ bun run lint:css     # Stylelint only
 
 ---
 
-© 2026 BeatTraffic KL. Built for a smarter Malaysia.
+© 2026 Beat KL traffic. Clearer roads for Klang Valley.

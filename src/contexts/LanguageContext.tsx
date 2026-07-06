@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getTranslation, type Locale, type Translations } from '../i18n'
 
-const STORAGE_KEY = 'beattraffic-locale'
+const STORAGE_KEY = 'beat-kl-traffic-locale'
+const LEGACY_STORAGE_KEY = 'beattraffic-locale'
 
 interface LanguageContextValue {
   locale: Locale
@@ -12,8 +13,11 @@ interface LanguageContextValue {
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 
 function detectLocale(): Locale {
-  const stored = localStorage.getItem(STORAGE_KEY) as Locale | null
-  if (stored === 'en' || stored === 'ms' || stored === 'zh') return stored
+  const stored = (localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)) as Locale | null
+  if (stored === 'en' || stored === 'ms' || stored === 'zh') {
+    localStorage.setItem(STORAGE_KEY, stored)
+    return stored
+  }
 
   const browser = navigator.language.toLowerCase()
   if (browser.startsWith('ms') || browser.startsWith('my')) return 'ms'
