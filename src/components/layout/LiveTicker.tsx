@@ -1,7 +1,6 @@
 import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import { Activity } from 'lucide-react'
-import { useLanguage } from '../../contexts/LanguageContext'
 import { EASE_OUT_EXPO } from '../motion/variants'
 
 export interface LineStatus {

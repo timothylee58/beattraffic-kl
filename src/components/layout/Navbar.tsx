@@ -5,8 +5,6 @@ import { Train, User, LogOut, Menu, X, Shield } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useAuth } from '../../hooks/useAuth'
 import { blink } from '../../lib/blink'
-import { useLanguage } from '../../contexts/LanguageContext'
-import { LanguageSwitcher } from './LanguageSwitcher'
 import { EASE_OUT_EXPO, slideDown } from '../motion/variants'
 
 export function Navbar() {
@@ -29,18 +27,18 @@ export function Navbar() {
       className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative"
     >
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
-      <div className="container flex h-16 items-center justify-between gap-2">
+      <div className="container flex h-16 items-center justify-between">
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link to="/" className="flex items-center gap-2 group">
             <div className="bg-primary p-2 rounded-lg relative overflow-hidden">
               <span className="absolute inset-0 bg-accent/40 opacity-0 group-hover:opacity-100 transition-opacity" />
               <Train className="h-6 w-6 text-primary-foreground relative" />
             </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight text-primary">{t.meta.brandName}</span>
+            <span className="text-xl font-bold tracking-tight text-primary">BeatTraffic KL</span>
           </Link>
         </motion.div>
 
-        <div className="hidden md:flex items-center gap-5">
+        <div className="hidden md:flex items-center gap-6">
           {navLinks.map((link, index) => (
             <motion.a
               key={link.href}
@@ -78,8 +76,8 @@ export function Navbar() {
             </div>
           ) : (
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-              <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90" size="sm">
-                {t.nav.signIn}
+              <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90">
+                Sign In
               </Button>
             </motion.div>
           )}
@@ -129,7 +127,7 @@ export function Navbar() {
                   onClick={() => setMobileOpen(false)}
                 >
                   <Shield className="h-3.5 w-3.5" />
-                  {t.nav.admin}
+                  Admin Dashboard
                 </Link>
               )}
             </motion.div>

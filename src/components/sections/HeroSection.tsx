@@ -7,7 +7,6 @@ import { GradientText } from '../motion/GradientText'
 import { MotionButton } from '../motion/MotionButton'
 import { TiltCard } from '../motion/TiltCard'
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from '../motion/variants'
-import { useLanguage } from '../../contexts/LanguageContext'
 
 interface HeroSectionProps {
   onPlanRoute: () => void
@@ -55,7 +54,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
               </span>
               <Info className="h-3 w-3" />
-              {t.hero.badge}
+              Moovit-beating intelligence for Malaysia
             </motion.div>
 
             <motion.h1
@@ -63,9 +62,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
               transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
               className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-bold leading-[1.15] drop-shadow-lg"
             >
-              {t.hero.headlinePrefix}{' '}
-              <GradientText className="italic">{t.hero.headlineHighlight}</GradientText>{' '}
-              {t.hero.headlineSuffix}
+              BeatTraffic — <GradientText className="italic">line-aware transit intelligence</GradientText> that actually gets you around Klang Valley.
             </motion.h1>
 
             <motion.p
@@ -73,7 +70,8 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
               transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
               className="text-base sm:text-lg text-white/70 max-w-lg mx-auto lg:mx-0 drop-shadow"
             >
-              {t.hero.subtitle}
+              Smart route planning, crowd prediction, and offline routing built on OpenStreetMap + MapLibre + GTFS.
+              Every line has its own AI-driven advantage so you arrive faster and less stressed.
             </motion.p>
 
             <motion.div
@@ -87,7 +85,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                   onClick={onPlanRoute}
                 >
                   <Search className="h-4 w-4 mr-2" />
-                  {t.hero.planRoute}
+                  Plan a route
                 </Button>
               </MotionButton>
               <MotionButton>
@@ -97,7 +95,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                   onClick={() => document.getElementById('lines')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   <MapPinned className="h-4 w-4 mr-2" />
-                  {t.hero.exploreMap}
+                  Explore live map
                 </Button>
               </MotionButton>
             </motion.div>
@@ -112,9 +110,9 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
             <TiltCard className="glass-panel glow-ring rounded-3xl p-5 sm:p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-white/60">{t.hero.crowdPulse}</p>
+                  <p className="text-xs uppercase tracking-widest text-white/60">AI Crowd Pulse</p>
                   <p className="text-2xl font-bold text-white">
-                    <AnimatedCounter value={73} suffix={`% ${t.hero.calm}`} />
+                    <AnimatedCounter value={73} suffix="% calm" />
                   </p>
                 </div>
                 <motion.div
@@ -133,7 +131,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                 animate="visible"
                 className="space-y-3 text-sm text-white/80"
               >
-                {t.hero.pulseLines.map((line, index) => (
+                {PULSE_LINES.map((line, index) => (
                   <motion.div
                     key={line.name}
                     variants={fadeUp}
@@ -143,15 +141,14 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                   >
                     <span className="flex items-center gap-2">
                       <motion.span
-                        className={`h-1.5 w-1.5 rounded-full ${['bg-yellow-400', 'bg-red-500', 'bg-teal-400'][index]}`}
+                        className={`h-1.5 w-1.5 rounded-full ${line.dot}`}
                         animate={{ scale: [1, 1.4, 1] }}
                         transition={{ duration: 2.5, repeat: Infinity, delay: index * 0.4 }}
                       />
                       {line.name}
                     </span>
                     <span className="font-bold text-white">
-                      {line.label}{' '}
-                      <AnimatedCounter value={line.metric} suffix={line.suffix} />
+                      {line.label} <AnimatedCounter value={line.metric} suffix={line.suffix} />
                     </span>
                   </motion.div>
                 ))}
@@ -163,7 +160,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                 transition={{ delay: 0.7, duration: 0.5, ease: EASE_OUT_EXPO }}
                 className="glass-panel rounded-2xl p-4 text-xs text-white/70 border-white/10"
               >
-                {t.hero.offlineNote}
+                Offline-ready routing + 45k cached POIs across Klang Valley. Syncs when you reconnect.
               </motion.div>
             </TiltCard>
           </motion.div>

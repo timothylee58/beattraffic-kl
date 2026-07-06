@@ -111,16 +111,8 @@ function HomePage() {
             >
               {activeTab === 'planner' && <RoutePlanner />}
               {activeTab === 'tickets' && <TicketList />}
-              {(activeTab === 'scanner' || activeTab === 'assistant') && (
-                <div className="grid lg:grid-cols-2 gap-6 items-start">
-                  <div className={activeTab === 'assistant' ? 'hidden lg:block' : ''}>
-                    <ScanHub onAskAi={handleAskAi} />
-                  </div>
-                  <div className={activeTab === 'scanner' ? 'hidden lg:block' : ''}>
-                    <CommuteAIAgent />
-                  </div>
-                </div>
-              )}
+              {activeTab === 'scanner' && <QRScanner />}
+              {activeTab === 'assistant' && <PersonalCommuteAssistant />}
             </motion.div>
           </AnimatePresence>
 
