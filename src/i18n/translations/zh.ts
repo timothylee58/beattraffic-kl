@@ -4,7 +4,7 @@ export const zh: Translations = {
   meta: {
     title: 'Beat KL traffic',
     brandName: 'Beat KL traffic',
-    description: 'Beat KL traffic — 雪兰莪谷智能交通。规划更快路线，避开拥堵，让更多车辆驶离道路。',
+    description: 'Beat KL traffic — 巴生谷智能交通。规划更快路线，避开车辆拥堵，让更多汽车驶离道路。',
   },
   nav: {
     planner: '路线规划',
@@ -21,17 +21,17 @@ export const zh: Translations = {
     wait: '等待',
   },
   hero: {
-    badge: '缓解雪兰莪谷拥堵，一次一条更智能的路线',
+    badge: '缓解巴生谷车辆拥堵，一次一条更智能的路线',
     headlinePrefix: 'Beat KL traffic —',
-    headlineHighlight: '缓解拥堵',
-    headlineSuffix: '用线路感知交通覆盖整个雪兰莪谷。',
+    headlineHighlight: '缓解车辆拥堵',
+    headlineSuffix: '用线路感知交通覆盖整个巴生谷。',
     subtitle:
-      '我们的目标：让更多雪兰莪谷通勤者放下私家车。基于 OpenStreetMap + MapLibre + GTFS 的智能路线规划、拥挤预测与离线导航 — 帮您选择比堵在路上更快的列车和巴士。',
+      '我们的目标：让更多巴生谷通勤者放下私家车。基于 OpenStreetMap + MapLibre + GTFS 的智能路线规划、拥挤预测与离线导航 — 帮您选择比堵在路上更快的列车和巴士。',
     planRoute: '规划路线',
     exploreMap: '探索实时地图',
     crowdPulse: 'AI 拥挤指数',
     calm: '畅通',
-    offlineNote: '离线导航 + 雪兰莪谷 4.5 万个缓存 POI。更少绕路，更少困在拥堵中。',
+    offlineNote: '离线导航 + 巴生谷 4.5 万个缓存 POI。更少绕路，更少困在车辆拥堵中。',
     pulseLines: [
       { name: 'MRT 布城线', label: '可靠性', metric: 96, suffix: '%' },
       { name: 'LRT 格拉那再也线', label: '拥挤度', metric: 4, suffix: '/10' },
@@ -60,9 +60,9 @@ export const zh: Translations = {
   ],
   features: {
     badge: '我们的使命',
-    title: '为什么 Beat KL traffic 能对抗拥堵',
+    title: '为什么 Beat KL traffic 能对抗车辆拥堵',
     subtitle:
-      '高速公路上多堵一分钟，我们就想帮您夺回一分钟。线路感知智能帮助雪兰莪谷通勤者转向真正胜过堵车的公共交通。',
+      '高速公路上多堵一分钟，我们就想帮您夺回一分钟。线路感知智能帮助巴生谷通勤者转向真正胜过堵车的公共交通。',
     items: [
       {
         title: '实时追踪',
@@ -80,7 +80,7 @@ export const zh: Translations = {
   },
   lines: {
     title: '线路感知智能',
-    subtitle: '每条雪兰莪谷铁路线路都针对将人们从道路引向更快通行而优化。',
+    subtitle: '每条巴生谷铁路线路都针对将人们从道路引向更快通行而优化。',
     badgeNew: '新开通',
     badgeComingSoon: '即将上线',
     items: [
@@ -129,7 +129,7 @@ export const zh: Translations = {
   },
   architecture: {
     title: '生产级架构',
-    subtitle: '模块化后端与离线优先移动技术栈，为雪兰莪谷实时缓解拥堵而构建。',
+    subtitle: '模块化后端与离线优先移动技术栈，为巴生谷实时缓解车辆拥堵而构建。',
     sections: [
       {
         title: '移动应用',
@@ -151,7 +151,7 @@ export const zh: Translations = {
   },
   roadmap: {
     title: '更畅通的道路在前方',
-    subtitle: 'AI 拥挤预测、离线导航、LRT3 深度集成与更广覆盖 — 目标是将更多汽车驶离雪兰莪谷高速公路。',
+    subtitle: 'AI 拥挤预测、离线导航、LRT3 深度集成与更广覆盖 — 目标是将更多汽车驶离巴生谷高速公路。',
     items: [
       {
         title: 'AI 拥挤预测',
@@ -167,19 +167,19 @@ export const zh: Translations = {
       },
       {
         title: '逐州扩展',
-        detail: '柔佛 → 槟城 → 砂拉越 — 将缓解拥堵的策略推广到雪兰莪谷以外。',
+        detail: '柔佛 → 槟城 → 砂拉越 — 将缓解车辆拥堵的策略推广到巴生谷以外。',
       },
     ],
   },
   footer: {
-    tagline: '我们的目标：通过让公共交通更快、更方便，缓解雪兰莪谷的交通拥堵。',
+    tagline: '我们的目标：通过让公共交通更快、更方便，缓解巴生谷的车辆拥堵。',
     quickLinks: '快速链接',
     helpSupport: '帮助与支持',
     mobileApp: '移动应用',
     mobileAppDesc: '用手机缓解拥堵。立即下载 Beat KL traffic。',
     appStore: '在 App Store 下载',
     googlePlay: '在 Google Play 下载',
-    copyright: '为更畅通的雪兰莪谷道路而建。',
+    copyright: '为更畅通的巴生谷道路而建。',
     links: {
       journeyPlanner: '行程规划',
       ticketPrices: '票价',
