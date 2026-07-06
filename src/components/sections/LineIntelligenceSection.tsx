@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { Reveal } from '../motion/Reveal'
 
 interface Line {
@@ -37,8 +38,10 @@ export function LineIntelligenceSection() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {LINES.map((line, index) => (
             <Reveal key={line.name} delay={(index % 3) * 0.08}>
-              <div
-                className={`group p-6 border rounded-2xl bg-card shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden ${line.glow} ${line.comingSoon ? 'opacity-80' : ''}`}
+              <motion.div
+                className={`group p-6 border rounded-2xl bg-card shadow-sm relative overflow-hidden ${line.glow} ${line.comingSoon ? 'opacity-80' : ''}`}
+                whileHover={{ y: -6, boxShadow: '0 20px 40px -15px rgb(0 0 0 / 0.15)' }}
+                transition={{ type: 'spring', stiffness: 340, damping: 22 }}
               >
                 {line.comingSoon && (
                   <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest bg-accent/20 text-accent-foreground px-2 py-0.5 rounded-full border border-accent/30">
@@ -56,7 +59,7 @@ export function LineIntelligenceSection() {
                 <h3 className="font-bold text-lg text-primary">{line.name}</h3>
                 <p className="text-sm font-semibold text-accent mt-2">{line.usp}</p>
                 <p className="text-sm text-muted-foreground mt-2">{line.detail}</p>
-              </div>
+              </motion.div>
             </Reveal>
           ))}
         </div>
