@@ -8,10 +8,14 @@ import {
 } from 'react'
 import { chatWithCommuteAgent } from '../lib/commuteAgent'
 import type { AgentMessage, ScanInsight } from '../types/agent'
+import type { RetrievedChunk } from '../lib/rag/types'
+import { useLanguage } from './LanguageContext'
 
 interface AgentContextValue {
   scanInsights: ScanInsight[]
   messages: AgentMessage[]
+  ragSources: RetrievedChunk[]
+  ragMode: 'firebase' | 'local' | null
   isThinking: boolean
   addScanInsight: (insight: ScanInsight) => void
   clearScanInsights: () => void
@@ -22,8 +26,11 @@ interface AgentContextValue {
 const AgentContext = createContext<AgentContextValue | null>(null)
 
 export function AgentProvider({ children }: { children: ReactNode }) {
+  const { locale } = useLanguage()
   const [scanInsights, setScanInsights] = useState<ScanInsight[]>([])
   const [messages, setMessages] = useState<AgentMessage[]>([])
+  const [ragSources, setRagSources] = useState<RetrievedChunk[]>([])
+  const [ragMode, setRagMode] = useState<'firebase' | 'local' | null>(null)
   const [isThinking, setIsThinking] = useState(false)
 
   const addScanInsight = useCallback((insight: ScanInsight) => {
@@ -32,7 +39,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const clearScanInsights = useCallback(() => setScanInsights([]), [])
 
-  const clearChat = useCallback(() => setMessages([]), [])
+  const clearChat = useCallback(() => {
+    setMessages([])
+    setRagSources([])
+    setRagMode(null)
+  }, [])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -50,15 +61,19 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       setIsThinking(true)
 
       try {
-        const reply = await chatWithCommuteAgent(trimmed, [...messages, userMsg], scanInsights)
+        const reply = await chatWithCommuteAgent(trimmed, [...messages, userMsg], scanInsights, locale)
+        setRagSources(reply.ragSources)
+        setRagMode(reply.ragMode)
         const assistantMsg: AgentMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: reply,
+          content: reply.text,
           createdAt: new Date().toISOString(),
         }
         setMessages(prev => [...prev, assistantMsg])
       } catch {
+        setRagSources([])
+        setRagMode(null)
         const errorMsg: AgentMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -71,20 +86,32 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         setIsThinking(false)
       }
     },
-    [isThinking, messages, scanInsights],
+    [isThinking, messages, scanInsights, locale],
   )
 
   const value = useMemo(
     () => ({
       scanInsights,
       messages,
+      ragSources,
+      ragMode,
       isThinking,
       addScanInsight,
       clearScanInsights,
       sendMessage,
       clearChat,
     }),
-    [scanInsights, messages, isThinking, addScanInsight, clearScanInsights, sendMessage, clearChat],
+    [
+      scanInsights,
+      messages,
+      ragSources,
+      ragMode,
+      isThinking,
+      addScanInsight,
+      clearScanInsights,
+      sendMessage,
+      clearChat,
+    ],
   )
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>

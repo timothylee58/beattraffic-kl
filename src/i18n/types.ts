@@ -100,6 +100,9 @@ export interface Translations {
     clearScans: string
     emptyState: string
     inputPlaceholder: string
+    ragSources: string
+    ragFirebase: string
+    ragLocal: string
   }
   highlights: {
     title: string

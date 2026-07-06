@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bot, Send, Sparkles, Trash2, User, ScanText } from 'lucide-react'
+import { Bot, BookOpen, Send, Sparkles, Trash2, User, ScanText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -14,7 +14,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 export function CommuteAIAgent() {
   const { t } = useLanguage()
   const { isAuthenticated } = useAuth()
-  const { messages, scanInsights, isThinking, sendMessage, clearChat, clearScanInsights } = useAgent()
+  const { messages, scanInsights, ragSources, ragMode, isThinking, sendMessage, clearChat, clearScanInsights } = useAgent()
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -64,6 +64,30 @@ export function CommuteAIAgent() {
             </Button>
           )}
         </div>
+
+        {ragSources.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-3 space-y-2"
+          >
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5" />
+              {t.agent.ragSources}
+              <Badge variant="outline" className="text-[10px] h-5">
+                {ragMode === 'firebase' ? t.agent.ragFirebase : t.agent.ragLocal}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {ragSources.map(source => (
+                <Badge key={source.id} variant="secondary" className="text-[10px] font-normal">
+                  {source.category}
+                  {source.line ? ` · ${source.line}` : ''}
+                </Badge>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {scanInsights.length > 0 && (
           <motion.div

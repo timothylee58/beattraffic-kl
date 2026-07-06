@@ -89,6 +89,9 @@ export const en: Translations = {
     clearScans: 'Clear',
     emptyState: 'Ask about routes, delays, or your latest scan. Quick prompts below:',
     inputPlaceholder: 'Ask how to beat the jam…',
+    ragSources: 'Grounded in',
+    ragFirebase: 'Firebase RAG',
+    ragLocal: 'Local knowledge',
   },
   highlights: [
     {

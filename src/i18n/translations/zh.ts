@@ -88,6 +88,9 @@ export const zh: Translations = {
     clearScans: '清除',
     emptyState: '询问路线、延误或最新扫描结果。下方有快捷提示：',
     inputPlaceholder: '询问如何缓解拥堵…',
+    ragSources: '依据',
+    ragFirebase: 'Firebase RAG',
+    ragLocal: '本地知识库',
   },
   highlights: [
     {

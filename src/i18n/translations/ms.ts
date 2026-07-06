@@ -90,6 +90,9 @@ export const ms: Translations = {
     clearScans: 'Kosongkan',
     emptyState: 'Tanya tentang laluan, kelewatan, atau imbasan terkini. Prompt pantas di bawah:',
     inputPlaceholder: 'Tanya cara mengatasi kesesakan…',
+    ragSources: 'Berasaskan',
+    ragFirebase: 'RAG Firebase',
+    ragLocal: 'Pengetahuan tempatan',
   },
   highlights: [
     {
