@@ -18,7 +18,7 @@ export default function RootLayout() {
           },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'RapidKL Transit' }} />
+        <Stack.Screen name="index" options={{ title: 'Beat KL traffic' }} />
         <Stack.Screen name="tickets" options={{ title: 'My Tickets' }} />
       </Stack>
     </QueryClientProvider>

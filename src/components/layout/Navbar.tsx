@@ -9,13 +9,14 @@ import { EASE_OUT_EXPO, slideDown } from '../motion/variants'
 
 export function Navbar() {
   const { user, isAuthenticated } = useAuth()
+  const { t } = useLanguage()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const navLinks = [
-    { href: '/#planner', label: 'Planner' },
-    { href: '/#lines', label: 'Line Intelligence' },
-    { href: '/#architecture', label: 'Architecture' },
-    { href: '/#roadmap', label: 'Roadmap' },
+    { href: '/#planner', label: t.nav.planner },
+    { href: '/#lines', label: t.nav.lineIntelligence },
+    { href: '/#architecture', label: t.nav.architecture },
+    { href: '/#roadmap', label: t.nav.roadmap },
   ]
 
   return (
@@ -55,21 +56,22 @@ export function Navbar() {
           {isAuthenticated && (
             <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
               <Shield className="h-3.5 w-3.5" />
-              Admin
+              {t.nav.admin}
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <LanguageSwitcher />
           {isAuthenticated ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden sm:flex items-center gap-2">
                 <User className="h-4 w-4" />
-                <span className="text-sm font-medium">{user?.displayName || user?.email}</span>
+                <span className="text-sm font-medium max-w-[8rem] truncate">{user?.displayName || user?.email}</span>
               </div>
               <Button variant="ghost" size="sm" onClick={() => blink.auth.logout()}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t.nav.logout}</span>
               </Button>
             </div>
           ) : (

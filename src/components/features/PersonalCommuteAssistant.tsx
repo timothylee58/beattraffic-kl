@@ -3,6 +3,7 @@ import { Star, MapPin, Clock, ArrowRightLeft, Trash2, Plus, Sparkles } from 'luc
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { useAuth } from '../../hooks/useAuth'
+import { useAgent } from '../../contexts/AgentContext'
 import { blink } from '../../lib/blink'
 
 interface SavedRoute {
@@ -31,6 +32,7 @@ function getTimeSuggestion(): Suggestion | null {
 
 export function PersonalCommuteAssistant() {
   const { user, isAuthenticated } = useAuth()
+  const { scanInsights } = useAgent()
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([])
   const [loading, setLoading] = useState(false)
   const suggestion = getTimeSuggestion()
@@ -85,6 +87,11 @@ export function PersonalCommuteAssistant() {
         </CardTitle>
         {isAuthenticated && (
           <p className="text-sm text-muted-foreground">{greeting()}</p>
+        )}
+        {scanInsights.length > 0 && (
+          <p className="text-xs text-accent font-medium">
+            {scanInsights.length} scan{scanInsights.length > 1 ? 's' : ''} paired with Commute AI
+          </p>
         )}
       </CardHeader>
       <CardContent className="space-y-4">

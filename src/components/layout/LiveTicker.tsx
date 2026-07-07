@@ -16,6 +16,8 @@ interface LiveTickerProps {
 }
 
 export function LiveTicker({ lineStatus }: LiveTickerProps) {
+  const { t } = useLanguage()
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
@@ -38,7 +40,7 @@ export function LiveTicker({ lineStatus }: LiveTickerProps) {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
               </span>
               <Activity className="h-3 w-3" />
-              Live Network
+              {t.liveTicker.liveNetwork}
             </div>
             {lineStatus.map((s, index) => (
               <motion.div
@@ -51,14 +53,14 @@ export function LiveTicker({ lineStatus }: LiveTickerProps) {
               >
                 <span className="font-bold text-white">{s.line}</span>
                 {s.dataAvailable === false ? (
-                  <span className="text-white/40 italic">data coming soon</span>
+                  <span className="text-white/40 italic">{t.liveTicker.dataComingSoon}</span>
                 ) : (
                   <>
                     <span className={s.status === 'Normal' ? 'text-emerald-400 font-semibold' : 'text-destructive font-bold'}>
                       {s.status}
                     </span>
                     <span className="text-white/40">•</span>
-                    <span className="text-white/60">{s.waitingTime}m wait</span>
+                    <span className="text-white/60">{s.waitingTime}m {t.liveTicker.wait}</span>
                   </>
                 )}
               </motion.div>

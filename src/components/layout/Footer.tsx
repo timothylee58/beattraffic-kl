@@ -1,7 +1,10 @@
 import { Train } from 'lucide-react'
 import { Button } from '../ui/button'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 export function Footer() {
+  const { t } = useLanguage()
+
   return (
     <footer className="relative bg-[#031733] text-primary-foreground py-16 overflow-hidden">
       <div className="absolute inset-0 bg-mesh-gradient opacity-25" />
@@ -12,11 +15,9 @@ export function Footer() {
             <div className="bg-accent/20 p-1.5 rounded-lg">
               <Train className="h-7 w-7 text-accent" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">BeatTraffic KL</span>
+            <span className="text-2xl font-bold tracking-tight">{t.meta.brandName}</span>
           </div>
-          <p className="text-sm text-primary-foreground/60 leading-relaxed">
-            Built to outsmart congestion, reduce wait times, and keep Malaysia moving with line-aware intelligence.
-          </p>
+          <p className="text-sm text-primary-foreground/60 leading-relaxed">{t.footer.tagline}</p>
           <div className="flex items-center gap-1.5">
             {['bg-yellow-400', 'bg-red-500', 'bg-orange-500', 'bg-indigo-400', 'bg-pink-400', 'bg-teal-400'].map((color) => (
               <span key={color} className={`h-1.5 w-6 rounded-full ${color}`} />
@@ -24,40 +25,38 @@ export function Footer() {
           </div>
         </div>
         <div>
-          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">Quick Links</h4>
+          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">{t.footer.quickLinks}</h4>
           <ul className="space-y-4 text-sm">
-            <li><a href="#" className="hover:text-accent transition-colors">Journey Planner</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Ticket Prices</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Line Map</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Feedback</a></li>
+            <li><a href="#planner" className="hover:text-accent transition-colors">{t.footer.links.journeyPlanner}</a></li>
+            <li><a href="#lines" className="hover:text-accent transition-colors">{t.footer.links.lineMap}</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.ticketPrices}</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.feedback}</a></li>
           </ul>
         </div>
         <div>
-          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">Help & Support</h4>
+          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">{t.footer.helpSupport}</h4>
           <ul className="space-y-4 text-sm">
-            <li><a href="#" className="hover:text-accent transition-colors">Contact Us</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Terms of Service</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Privacy Policy</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">FAQ</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.contact}</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.terms}</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.privacy}</a></li>
+            <li><a href="#" className="hover:text-accent transition-colors">{t.footer.links.faq}</a></li>
           </ul>
         </div>
         <div>
-          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">Mobile App</h4>
-          <p className="text-sm text-primary-foreground/60 mb-6">
-            Experience the future of KL transit. Download our mobile app today.
-          </p>
+          <h4 className="font-bold mb-6 uppercase tracking-widest text-xs text-accent">{t.footer.mobileApp}</h4>
+          <p className="text-sm text-primary-foreground/60 mb-6">{t.footer.mobileAppDesc}</p>
           <div className="space-y-3">
             <Button variant="secondary" className="w-full justify-start h-12 glass-panel hover:bg-white/20 text-white">
-              <span className="text-xs font-bold uppercase">Get it on App Store</span>
+              <span className="text-xs font-bold uppercase">{t.footer.appStore}</span>
             </Button>
             <Button variant="secondary" className="w-full justify-start h-12 glass-panel hover:bg-white/20 text-white">
-              <span className="text-xs font-bold uppercase">Get it on Google Play</span>
+              <span className="text-xs font-bold uppercase">{t.footer.googlePlay}</span>
             </Button>
           </div>
         </div>
       </div>
       <div className="container relative mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-primary-foreground/40">
-        <p>© {new Date().getFullYear()} BeatTraffic KL. Built for a smarter Malaysia.</p>
+        <p>© {new Date().getFullYear()} {t.meta.brandName}. {t.footer.copyright}</p>
         <div className="flex gap-6">
           <a href="#" className="hover:text-accent">Twitter</a>
           <a href="#" className="hover:text-accent">Facebook</a>

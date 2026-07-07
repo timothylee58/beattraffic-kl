@@ -12,13 +12,9 @@ interface HeroSectionProps {
   onPlanRoute: () => void
 }
 
-const PULSE_LINES = [
-  { name: 'MRT Putrajaya', metric: 96, suffix: '%', label: 'Reliability', dot: 'bg-yellow-400' },
-  { name: 'LRT Kelana Jaya', metric: 4, suffix: '/10', label: 'Crowd', dot: 'bg-red-500' },
-  { name: 'KTM Komuter', metric: 68, suffix: '%', label: 'Seats', dot: 'bg-indigo-400' },
-]
-
 export function HeroSection({ onPlanRoute }: HeroSectionProps) {
+  const { t } = useLanguage()
+
   return (
     <section className="relative min-h-[min(100dvh,720px)] flex items-center justify-center overflow-hidden bg-[#031733] px-4 sm:px-6">
       <div className="absolute inset-0 z-0 bg-mesh-gradient opacity-80" />
@@ -66,7 +62,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
               transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
               className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-bold leading-[1.15] drop-shadow-lg"
             >
-              BeatTraffic KL — <GradientText className="italic">line-aware transit</GradientText> that actually gets you there.
+              BeatTraffic — <GradientText className="italic">line-aware transit intelligence</GradientText> that actually gets you around Klang Valley.
             </motion.h1>
 
             <motion.p
