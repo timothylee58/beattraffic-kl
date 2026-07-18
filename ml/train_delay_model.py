@@ -52,7 +52,7 @@ except ImportError:
 LINES = [
     "MRT_PUTRAJAYA", "MRT_KAJANG", "LRT_KELANA_JAYA",
     "LRT_AMPANG", "LRT_SRI_PETALING", "MONORAIL",
-    "KTM_KOMUTER", "BRT_SHAH_ALAM",
+    "KTM_KOMUTER", "BRT_SUNWAY",
 ]
 
 FEATURE_COLS = [
@@ -198,7 +198,7 @@ def _export_onnx(model, X_sample: pd.DataFrame, out_dir: Path) -> None:
         return
     n_features = X_sample.shape[1]
     initial_type = [("float_input", FloatTensorType([None, n_features]))]
-    onnx_model = convert_sklearn(model, initial_types=initial_type, target_opset=17)
+    onnx_model = onnxmltools.convert_lightgbm(model, initial_types=initial_type, target_opset=17)
     onnx_path = out_dir / "delay_model.onnx"
     with open(onnx_path, "wb") as f:
         f.write(onnx_model.SerializeToString())

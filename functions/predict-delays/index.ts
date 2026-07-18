@@ -30,7 +30,7 @@ interface DelayPrediction {
 const LINES = [
   "MRT_PUTRAJAYA", "MRT_KAJANG", "LRT_KELANA_JAYA",
   "LRT_AMPANG", "LRT_SRI_PETALING", "MONORAIL",
-  "KTM_KOMUTER", "BRT_SHAH_ALAM",
+  "KTM_KOMUTER", "BRT_SUNWAY",
 ]
 
 // Reliability priors per line (lower = historically less reliable)
@@ -43,7 +43,7 @@ const LINE_RELIABILITY: Record<string, number> = {
   LRT_SRI_PETALING: 0.86,
   MONORAIL:        0.85,
   KTM_KOMUTER:     0.78,
-  BRT_SHAH_ALAM:   0.90,
+  BRT_SUNWAY:      0.90,
 }
 
 function isPeak(hour: number, dow: number): boolean {
@@ -76,7 +76,10 @@ function predict(req: PredictRequest): DelayPrediction {
   const incidents = req.incidents_active ?? 0
   const transferLoad = req.transfer_load ?? 0.3
   const lineId = req.line_id
-  const lineName = LINES[lineId] ?? "UNKNOWN"
+  if (lineId === undefined || typeof lineId !== 'number' || lineId < 0 || lineId >= LINES.length) {
+    throw new Error(`Invalid or missing line_id: ${lineId}. Must be 0–${LINES.length - 1}.`)
+  }
+  const lineName = LINES[lineId]
   const reliability = LINE_RELIABILITY[lineName] ?? 0.88
 
   // Weighted sum → sigmoid → P(delay > 5 min)
@@ -131,6 +134,13 @@ function predict(req: PredictRequest): DelayPrediction {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: `Method ${req.method} not allowed` }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
   }
 
   try {
