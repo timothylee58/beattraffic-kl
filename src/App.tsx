@@ -25,7 +25,7 @@ import { useLanguage } from './contexts/LanguageContext'
 import { useAgent } from './contexts/AgentContext'
 import type { ScanInsight } from './types/agent'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport'
 
 function HomePage() {
   const { t } = useLanguage()

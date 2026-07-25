@@ -10,6 +10,7 @@ import { fetchIncidents } from '../../lib/dosmApi'
 import { predictLineDelays } from '../../lib/delayPrediction'
 import { getAlternativeRoutes } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
+import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '../../lib/goklApi'
 import { toast } from 'react-hot-toast'
 
 interface Station {
@@ -28,8 +29,14 @@ export function RoutePlanner() {
   const [buying, setBuying] = useState(false)
   const [routeDelay, setRouteDelay] = useState(0)
   const [selectedAlt, setSelectedAlt] = useState<AlternativeRoute | null>(null)
+  const [goklRoutes, setGoklRoutes] = useState<GoKLRoute[]>([])
+  const [goklStops, setGoklStops] = useState<GoKLStop[]>([])
 
-  useEffect(() => { loadStations() }, [])
+  useEffect(() => {
+    loadStations()
+    fetchGoKLRoutes().then(setGoklRoutes)
+    fetchGoKLStops().then(setGoklStops)
+  }, [])
 
   const loadStations = async () => {
     setStationsLoading(true)
@@ -212,6 +219,32 @@ export function RoutePlanner() {
           delayMinutes={routeDelay}
           onSelect={route => { setSelectedAlt(route); toast.success(`Switched to: ${route.label}`) }}
         />
+      )}
+
+      {/* Free GoKL bus options */}
+      {fare !== null && goklStops.length > 0 && (
+        <Card className="border-t-4 border-t-red-600 animate-in slide-in-from-bottom-2 duration-300">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded">FREE</span>
+              GoKL City Bus — Free feeder options
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">GoKL buses are free within KL city. These stops are near major rail interchanges on your route.</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {goklStops.slice(0, 4).map(stop => (
+                <div key={stop.stopId} className="flex items-start gap-2.5 p-3 rounded-lg border bg-red-50/50">
+                  <div className="w-2 h-2 rounded-full bg-red-600 mt-1.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">{stop.name}</p>
+                    <p className="text-xs text-muted-foreground">Routes: {stop.routeIds.length > 0 ? stop.routeIds.join(', ') : goklRoutes.slice(0, 2).map(r => r.shortName).join(', ')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
