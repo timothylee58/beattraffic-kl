@@ -10,13 +10,23 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  const lines = ['Kelana Jaya', 'Kajang', 'Ampang', 'Sri Petaling', 'Monorail'];
-  const status = lines.map(line => ({
-    line,
-    status: Math.random() > 0.1 ? 'Normal' : 'Delayed',
-    waitingTime: Math.floor(Math.random() * 8) + 1,
-    crowdLevel: ['Low', 'Moderate', 'High'][Math.floor(Math.random() * 3)]
-  }));
+  const liveLines = ['MRT Putrajaya', 'Kelana Jaya', 'Kajang', 'Ampang', 'Sri Petaling', 'Monorail', 'KTM Komuter'];
+  const status = [
+    ...liveLines.map(line => ({
+      line,
+      status: Math.random() > 0.1 ? 'Normal' : 'Delayed',
+      waitingTime: Math.floor(Math.random() * 8) + 1,
+      crowdLevel: ['Low', 'Moderate', 'High'][Math.floor(Math.random() * 3)],
+      dataAvailable: true,
+    })),
+    {
+      line: 'Shah Alam',
+      status: 'No Data',
+      waitingTime: 0,
+      crowdLevel: 'Unknown',
+      dataAvailable: false,
+    },
+  ];
 
   return new Response(
     JSON.stringify(status),

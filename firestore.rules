@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Knowledge chunks are read-only for clients; writes via Admin SDK in Cloud Functions only.
+    match /knowledge_chunks/{chunkId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

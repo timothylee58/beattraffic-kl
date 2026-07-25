@@ -78,7 +78,7 @@ export default function AdminDashboard() {
               <Shield className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold text-sm">BeatTraffic KL — Operator Dashboard</p>
+              <p className="font-bold text-sm">Beat KL traffic — Operator Dashboard</p>
               <p className="text-xs text-primary-foreground/60">Real-time network intelligence</p>
             </div>
           </div>

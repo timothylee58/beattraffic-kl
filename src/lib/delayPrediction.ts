@@ -32,6 +32,36 @@ export const LINE_COLORS: Record<TransitLineCode, string> = {
   KTM_KOMUTER: 'bg-indigo-500',
 }
 
+// ── ML serving endpoint (set via env var or falls back to heuristic) ─────────
+const ML_ENDPOINT = import.meta.env.VITE_PREDICT_DELAYS_URL ?? ''
+
+export async function fetchMLPredictions(): Promise<LineDelayPrediction[] | null> {
+  if (!ML_ENDPOINT) return null
+  try {
+    const res = await fetch(ML_ENDPOINT)
+    if (!res.ok) return null
+    const raw: Array<{
+      line: string
+      delay_probability: number
+      estimated_delay_min: number
+      confidence: number
+      severity: LineDelayPrediction['severity']
+      trend: LineDelayPrediction['trend']
+    }> = await res.json()
+    return raw.map(r => ({
+      line: r.line as TransitLineCode,
+      lineName: LINE_NAMES[r.line as TransitLineCode] ?? r.line,
+      estimatedDelay: r.estimated_delay_min,
+      confidence: r.confidence,
+      cause: r.delay_probability > 0.6 ? 'ML model: elevated delay risk' : 'ML model: normal operations',
+      severity: r.severity,
+      trend: r.trend,
+    }))
+  } catch {
+    return null
+  }
+}
+
 export function predictLineDelays(
   incidents: TransitIncident[],
   currentHour = new Date().getHours(),
