@@ -4,19 +4,29 @@ import { Activity, AlertTriangle, ChevronRight, Database, Users } from 'lucide-r
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { fetchIncidents, fetchStationsFromDosm } from '../../lib/dosmApi'
 import { predictCrowdLevel } from '../../lib/predictiveEngine'
+import {
+  CROWD_COLORS, CROWD_DOT, heuristicCrowdLabel,
+  fetchLineCrowdSummaries, type CrowdPrediction,
+} from '../../lib/crowdPrediction'
 import type { CrowdForecast, TransitIncident, TransitStation } from '../../lib/transitData'
 
 export function TransitIntelligencePanel() {
   const [stations, setStations] = useState<TransitStation[]>([])
   const [incidents, setIncidents] = useState<TransitIncident[]>([])
   const [forecasts, setForecasts] = useState<CrowdForecast[]>([])
+  const [mlCrowd, setMlCrowd] = useState<CrowdPrediction[]>([])
 
   useEffect(() => {
     const load = async () => {
-      const [stationData, incidentData] = await Promise.all([fetchStationsFromDosm(), fetchIncidents()])
+      const [stationData, incidentData, mlData] = await Promise.all([
+        fetchStationsFromDosm(),
+        fetchIncidents(),
+        fetchLineCrowdSummaries(),
+      ])
       setStations(stationData)
       setIncidents(incidentData)
       setForecasts(stationData.slice(0, 5).map((station) => predictCrowdLevel(station, incidentData)))
+      if (mlData) setMlCrowd(mlData)
     }
 
     void load()
@@ -43,25 +53,37 @@ export function TransitIntelligencePanel() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {forecasts.map((forecast) => (
-              <Link
-                key={forecast.stationId}
-                to={`/station/${forecast.stationId}`}
-                className="flex items-center justify-between rounded-lg border p-3 hover:bg-secondary/50 transition-colors group"
-              >
-                <div>
-                  <p className="font-semibold">{stations.find((station) => station.id === forecast.stationId)?.name ?? forecast.stationId}</p>
-                  <p className="text-xs text-muted-foreground">{forecast.line}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-sm font-bold">{forecast.score}/100</p>
-                    <p className="text-xs uppercase text-muted-foreground">{forecast.label}</p>
+            {forecasts.map((forecast) => {
+              const mlEntry = mlCrowd.find(m => m.line === forecast.line)
+              const hour = new Date().getHours()
+              const dow = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1
+              const crowdLabel = mlEntry?.crowd_label ?? heuristicCrowdLabel(hour, dow)
+              const crowdColors = CROWD_COLORS[crowdLabel]
+              const crowdDot = CROWD_DOT[crowdLabel]
+              return (
+                <Link
+                  key={forecast.stationId}
+                  to={`/station/${forecast.stationId}`}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-secondary/50 transition-colors group"
+                >
+                  <div>
+                    <p className="font-semibold">{stations.find((station) => station.id === forecast.stationId)?.name ?? forecast.stationId}</p>
+                    <p className="text-xs text-muted-foreground">{forecast.line}</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </Link>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full border ${crowdColors}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${crowdDot}`} />
+                      {crowdLabel}
+                    </span>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{forecast.score}/100</p>
+                      <p className="text-xs uppercase text-muted-foreground">{forecast.label}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </CardContent>
       </Card>
