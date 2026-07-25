@@ -45,6 +45,9 @@ export const ms: Translations = {
     tickets: 'Tiket Saya',
     scanner: 'Imbas & OCR',
     assistant: 'AI Komuter',
+    commutes: 'Komuter Tersimpan',
+    passport: 'Pasport',
+    heatmap: 'Peta Kepadatan',
   },
   scanner: {
     title: 'Hab Imbas & OCR',

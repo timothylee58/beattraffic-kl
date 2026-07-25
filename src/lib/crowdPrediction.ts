@@ -1,63 +1,54 @@
+export type CrowdLabel = 'Low' | 'Moderate' | 'High'
+
 export interface CrowdPrediction {
-  line: string
-  station_id: number
-  crowd_level: 0 | 1 | 2
-  crowd_label: 'Low' | 'Moderate' | 'High'
-  probabilities: [number, number, number]
-  confidence: number
+  lineId: string
+  stationId?: string
+  crowd_level: number
+  label: CrowdLabel
 }
 
-export const CROWD_LABELS = ['Low', 'Moderate', 'High'] as const
-export type CrowdLabel = typeof CROWD_LABELS[number]
-
 export const CROWD_COLORS: Record<CrowdLabel, string> = {
-  Low:      'text-green-600 bg-green-50 border-green-200',
-  Moderate: 'text-amber-600 bg-amber-50 border-amber-200',
-  High:     'text-red-600 bg-red-50 border-red-200',
+  Low: 'bg-green-100 text-green-800 border-green-300',
+  Moderate: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  High: 'bg-red-100 text-red-800 border-red-300',
 }
 
 export const CROWD_DOT: Record<CrowdLabel, string> = {
-  Low:      'bg-green-500',
-  Moderate: 'bg-amber-500',
-  High:     'bg-red-500',
+  Low: 'bg-green-500',
+  Moderate: 'bg-yellow-500',
+  High: 'bg-red-500',
 }
 
-const ML_ENDPOINT = import.meta.env.VITE_PREDICT_CROWD_URL ?? ''
+export const CROWD_BG: Record<CrowdLabel, string> = {
+  Low: 'bg-green-500',
+  Moderate: 'bg-yellow-400',
+  High: 'bg-red-500',
+}
+
+export function heuristicCrowdLabel(hour: number, dow: number): CrowdLabel {
+  const isWeekend = dow === 0 || dow === 6
+  const isPeak = (!isWeekend && ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)))
+  const isMidPeak = (!isWeekend && hour >= 11 && hour <= 14) || (isWeekend && hour >= 11 && hour <= 15)
+  if (isPeak) return 'High'
+  if (isMidPeak) return 'Moderate'
+  return 'Low'
+}
+
+const CROWD_URL = import.meta.env.VITE_PREDICT_CROWD_URL as string | undefined
 
 export async function fetchLineCrowdSummaries(): Promise<CrowdPrediction[] | null> {
-  if (!ML_ENDPOINT) return null
+  if (!CROWD_URL) return null
   try {
-    const res = await fetch(ML_ENDPOINT)
+    const res = await fetch(CROWD_URL)
     if (!res.ok) return null
-    return res.json()
+    return await res.json()
   } catch {
     return null
   }
 }
 
-export async function fetchStationCrowdPrediction(
-  lineId: number,
-  stationId: number,
-): Promise<CrowdPrediction | null> {
-  if (!ML_ENDPOINT) return null
-  try {
-    const res = await fetch(ML_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ line_id: lineId, station_id: stationId }),
-    })
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
-}
-
-/** Heuristic fallback — used when ML endpoint is not configured. */
-export function heuristicCrowdLabel(hour: number, dow: number): CrowdLabel {
-  const isPeak = dow < 5 && ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20))
-  const isMidDay = hour >= 11 && hour <= 14
-  if (isPeak) return 'High'
-  if (isMidDay) return 'Moderate'
-  return 'Low'
+export async function fetchStationCrowdPrediction(lineId: string, stationId: string): Promise<CrowdPrediction | null> {
+  const all = await fetchLineCrowdSummaries()
+  if (!all) return null
+  return all.find(p => p.lineId === lineId && p.stationId === stationId) ?? null
 }

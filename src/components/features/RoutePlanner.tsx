@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, MapPin, ArrowRightLeft, TrainFront, AlertTriangle } from 'lucide-react'
+import { Search, MapPin, ArrowRightLeft, TrainFront, AlertTriangle, Car, Footprints } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -11,6 +11,7 @@ import { predictLineDelays } from '../../lib/delayPrediction'
 import { getAlternativeRoutes } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
 import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '../../lib/goklApi'
+import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/modalCost'
 import { toast } from 'react-hot-toast'
 
 interface Station {
@@ -31,6 +32,7 @@ export function RoutePlanner() {
   const [selectedAlt, setSelectedAlt] = useState<AlternativeRoute | null>(null)
   const [goklRoutes, setGoklRoutes] = useState<GoKLRoute[]>([])
   const [goklStops, setGoklStops] = useState<GoKLStop[]>([])
+  const [modalCost, setModalCost] = useState<ModalCostResult | null>(null)
 
   useEffect(() => {
     loadStations()
@@ -55,11 +57,23 @@ export function RoutePlanner() {
     if (from === to) { toast.error('Stations cannot be the same'); return }
 
     const fromStation = stations.find(s => s.id === from)
+    const toStation = stations.find(s => s.id === to)
     const fromIndex = stations.findIndex(s => s.id === from)
     const toIndex = stations.findIndex(s => s.id === to)
     const distance = Math.abs(fromIndex - toIndex)
-    setFare(2.0 + distance * 0.5)
+    const calculatedFare = 2.0 + distance * 0.5
+    setFare(calculatedFare)
     setSelectedAlt(null)
+    setModalCost(null)
+
+    // Compute multi-modal cost comparison
+    const distKm = (fromStation as any)?.lat && (toStation as any)?.lat
+      ? haversineKm(
+          (fromStation as any).lat, (fromStation as any).lon,
+          (toStation as any).lat, (toStation as any).lon
+        )
+      : Math.max(1, distance * 0.8)
+    setModalCost(estimateModalCost(calculatedFare, distKm))
 
     // Check for delays on the from-station's line
     try {
@@ -94,6 +108,7 @@ export function RoutePlanner() {
       setTo('')
       setRouteDelay(0)
       setSelectedAlt(null)
+      setModalCost(null)
     } catch {
       toast.error('Failed to purchase ticket')
     } finally {
@@ -219,6 +234,61 @@ export function RoutePlanner() {
           delayMinutes={routeDelay}
           onSelect={route => { setSelectedAlt(route); toast.success(`Switched to: ${route.label}`) }}
         />
+      )}
+
+      {/* Multi-modal cost comparison */}
+      {fare !== null && modalCost && (
+        <Card className="border-t-4 border-t-blue-600 animate-in slide-in-from-bottom-2 duration-300">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Car className="h-4 w-4 text-blue-600" />
+              Cost Comparison
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Train option */}
+              <div className="rounded-xl border-2 border-primary bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                  <TrainFront className="h-4 w-4" /> Train
+                </div>
+                <p className="text-2xl font-black text-primary">
+                  RM {(selectedAlt ? selectedAlt.fare : modalCost.trainFare).toFixed(2)}
+                </p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Footprints className="h-3.5 w-3.5 shrink-0" />
+                  +{modalCost.trainWalkMinutes} min walk
+                </div>
+                <div className="text-[11px] text-green-700 font-medium bg-green-50 rounded px-2 py-0.5 inline-block">
+                  Recommended
+                </div>
+              </div>
+
+              {/* Grab option */}
+              <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground font-bold text-xs uppercase tracking-wider">
+                  <Car className="h-4 w-4" /> Grab
+                </div>
+                <p className="text-2xl font-black text-foreground">
+                  ~RM {modalCost.grabEstimate.toFixed(0)}
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  ~{modalCost.distanceKm.toFixed(1)} km trip
+                </div>
+                {modalCost.grabSurge && (
+                  <div className="text-[11px] text-orange-700 font-medium bg-orange-50 rounded px-2 py-0.5 inline-block">
+                    Peak surge
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Grab price is an estimate (base RM3 + RM1.50/km
+              {modalCost.grabSurge ? ', 1.3× surge' : ''}). Actual fares may vary.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Free GoKL bus options */}

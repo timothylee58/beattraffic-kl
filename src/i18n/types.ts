@@ -55,6 +55,9 @@ export interface Translations {
     tickets: string
     scanner: string
     assistant: string
+    commutes: string
+    passport: string
+    heatmap: string
   }
   scanner: {
     title: string
