@@ -48,6 +48,8 @@ export const ms: Translations = {
     commutes: 'Komuter Tersimpan',
     passport: 'Pasport',
     heatmap: 'Peta Kepadatan',
+    getoff: 'Amaran Turun',
+    leaderboard: 'Papan Pemimpin',
   },
   scanner: {
     title: 'Hab Imbas & OCR',

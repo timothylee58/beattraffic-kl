@@ -58,6 +58,8 @@ export interface Translations {
     commutes: string
     passport: string
     heatmap: string
+    getoff: string
+    leaderboard: string
   }
   scanner: {
     title: string

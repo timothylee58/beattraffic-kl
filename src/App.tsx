@@ -19,16 +19,18 @@ import { CommuteAIAgent } from './components/features/CommuteAIAgent'
 import { SavedCommutes } from './components/features/SavedCommutes'
 import { JourneyPassport } from './components/features/JourneyPassport'
 import { CrowdHeatmap } from './components/features/CrowdHeatmap'
+import { GetOffNotification } from './components/features/GetOffNotification'
+import { CommuteLeaderboard } from './components/features/CommuteLeaderboard'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { BookmarkPlus, CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Users } from 'lucide-react'
+import { BellRing, BookmarkPlus, CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
 import { useLanguage } from './contexts/LanguageContext'
 import { useAgent } from './contexts/AgentContext'
 import type { ScanInsight } from './types/agent'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap' | 'getoff' | 'leaderboard'
 
 function HomePage() {
   const { t } = useLanguage()
@@ -94,6 +96,8 @@ function HomePage() {
               { id: 'commutes' as const, label: t.tabs.commutes, icon: <BookmarkPlus className="h-4 w-4" /> },
               { id: 'passport' as const, label: t.tabs.passport, icon: <Stamp className="h-4 w-4" /> },
               { id: 'heatmap' as const, label: t.tabs.heatmap, icon: <Users className="h-4 w-4" /> },
+              { id: 'getoff' as const, label: t.tabs.getoff, icon: <BellRing className="h-4 w-4" /> },
+              { id: 'leaderboard' as const, label: t.tabs.leaderboard, icon: <Trophy className="h-4 w-4" /> },
             ]).map(tab => (
               <Button
                 key={tab.id}
@@ -122,6 +126,8 @@ function HomePage() {
               {activeTab === 'commutes' && <SavedCommutes />}
               {activeTab === 'passport' && <JourneyPassport />}
               {activeTab === 'heatmap' && <CrowdHeatmap />}
+              {activeTab === 'getoff' && <GetOffNotification />}
+              {activeTab === 'leaderboard' && <CommuteLeaderboard />}
             </motion.div>
           </AnimatePresence>
 
