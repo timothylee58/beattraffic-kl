@@ -16,16 +16,19 @@ import { DelayPredictionPanel } from './components/features/DelayPredictionPanel
 import { PersonalCommuteAssistant } from './components/features/PersonalCommuteAssistant'
 import { ScanHub } from './components/features/ScanHub'
 import { CommuteAIAgent } from './components/features/CommuteAIAgent'
+import { SavedCommutes } from './components/features/SavedCommutes'
+import { JourneyPassport } from './components/features/JourneyPassport'
+import { CrowdHeatmap } from './components/features/CrowdHeatmap'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Ticket } from 'lucide-react'
+import { BookmarkPlus, CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Users } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
 import { useLanguage } from './contexts/LanguageContext'
 import { useAgent } from './contexts/AgentContext'
 import type { ScanInsight } from './types/agent'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap'
 
 function HomePage() {
   const { t } = useLanguage()
@@ -88,6 +91,9 @@ function HomePage() {
               { id: 'tickets' as const, label: t.tabs.tickets, icon: <Ticket className="h-4 w-4" /> },
               { id: 'scanner' as const, label: t.tabs.scanner, icon: <ScanText className="h-4 w-4" /> },
               { id: 'assistant' as const, label: t.tabs.assistant, icon: <Sparkles className="h-4 w-4" /> },
+              { id: 'commutes' as const, label: t.tabs.commutes, icon: <BookmarkPlus className="h-4 w-4" /> },
+              { id: 'passport' as const, label: t.tabs.passport, icon: <Stamp className="h-4 w-4" /> },
+              { id: 'heatmap' as const, label: t.tabs.heatmap, icon: <Users className="h-4 w-4" /> },
             ]).map(tab => (
               <Button
                 key={tab.id}
@@ -111,8 +117,11 @@ function HomePage() {
             >
               {activeTab === 'planner' && <RoutePlanner />}
               {activeTab === 'tickets' && <TicketList />}
-              {activeTab === 'scanner' && <QRScanner />}
-              {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+              {activeTab === 'scanner' && <ScanHub onAskAi={handleAskAi} />}
+              {activeTab === 'assistant' && <CommuteAIAgent />}
+              {activeTab === 'commutes' && <SavedCommutes />}
+              {activeTab === 'passport' && <JourneyPassport />}
+              {activeTab === 'heatmap' && <CrowdHeatmap />}
             </motion.div>
           </AnimatePresence>
 

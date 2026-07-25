@@ -43,6 +43,9 @@ export const zh: Translations = {
     tickets: '我的车票',
     scanner: '扫描与 OCR',
     assistant: '通勤 AI',
+    commutes: '已保存路线',
+    passport: '旅程护照',
+    heatmap: '人流热图',
   },
   scanner: {
     title: '扫描与 OCR 中心',

@@ -44,6 +44,9 @@ export const en: Translations = {
     tickets: 'My Tickets',
     scanner: 'Scan & OCR',
     assistant: 'Commute AI',
+    commutes: 'Saved Commutes',
+    passport: 'Passport',
+    heatmap: 'Crowd Map',
   },
   scanner: {
     title: 'Scan & OCR Hub',
