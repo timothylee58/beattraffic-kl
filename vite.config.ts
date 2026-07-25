@@ -4,11 +4,6 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  build: {
-    rollupOptions: {
-      external: ['firebase/functions', 'firebase/app', 'firebase/firestore'],
-    },
-  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
