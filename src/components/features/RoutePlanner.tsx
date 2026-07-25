@@ -104,7 +104,7 @@ export function RoutePlanner() {
   const alternatives = getAlternativeRoutes(routeDelay)
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-4xl mx-auto space-y-4">
       <Card className="shadow-xl border-t-4 border-t-primary animate-fade-in">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -1,6 +1,6 @@
-# BeatTraffic KL
+# Beat KL traffic
 
-**Line-aware transit intelligence for Klang Valley** — real-time crowd prediction, AI delay forecasting, smart alternative routing, digital ticketing, and an autonomous NOC operations layer, all built on open data (DOSM, GTFS, OpenStreetMap).
+**Alleviating traffic jams across Klang Valley** — line-aware transit intelligence with real-time crowd prediction, AI delay forecasting, smart alternative routing, and digital ticketing, all built on open data (DOSM, GTFS, OpenStreetMap).
 
 ---
 
@@ -264,6 +264,23 @@ uvicorn main:app --reload
 |---|---|
 | `VITE_BLINK_PROJECT_ID` | Blink project ID (auto-detected from `.blink.new` hostname) |
 | `VITE_BLINK_PUBLISHABLE_KEY` | Blink publishable key for auth and database access |
+| `VITE_FIREBASE_API_KEY` | Firebase web API key (optional; enables cloud RAG) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | Firebase app ID |
+| `VITE_FIREBASE_FUNCTIONS_REGION` | Cloud Functions region (default `asia-southeast1`) |
+
+### Firebase RAG (Cloud Functions)
+
+| Secret / step | Description |
+|---|---|
+| `GEMINI_API_KEY` | Set with `firebase functions:secrets:set GEMINI_API_KEY` for `text-embedding-004` |
+| `ragIngest` | Callable function (admin claim) — seeds `knowledge_chunks` with embeddings |
+| `ragQuery` | Callable function — embeds user question and returns top-k chunks |
+
+Without Firebase env vars, Commute AI uses the bundled local hybrid retriever (`src/lib/rag/localRetriever.ts`).
 
 ### Orchestration API (`orchestration-api/.env`)
 
@@ -358,7 +375,7 @@ bun run lint:css     # Stylelint only
 - [ ] **Offline Routing** — cache GTFS fragments + walking graphs for no-signal zones
 - [ ] **OpenTripPlanner Integration** — GTFS-aware multi-modal routing with real ETAs
 - [ ] **MapLibre Map View** — live train positions and station overlays on OpenStreetMap
-- [ ] **RAG Chat Assistant** — GTFS data ingested daily into Supabase pgvector for hybrid semantic + keyword search
+- [x] **RAG Chat Assistant** — Firebase Firestore vector search + local hybrid fallback; Gemini embeddings via Cloud Functions (`ragQuery` / `ragIngest`)
 - [ ] **BAS.MY Live API** — replace mock bus data with registered BAS.MY API credentials
 - [ ] **Fare Caps** — auto top-up and daily/weekly fare cap logic per Prasarana rules
 - [ ] **Safe-Walk Guidance** — incident clusters and late-night exit recommendations
@@ -366,4 +383,4 @@ bun run lint:css     # Stylelint only
 
 ---
 
-© 2026 BeatTraffic KL. Built for a smarter Malaysia.
+© 2026 Beat KL traffic. Clearer roads for Klang Valley.

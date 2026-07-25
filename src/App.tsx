@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
 import { LiveTicker, type LineStatus } from './components/layout/LiveTicker'
@@ -13,17 +14,22 @@ import { TicketList } from './components/features/TicketList'
 import { TransitIntelligencePanel } from './components/features/TransitIntelligencePanel'
 import { DelayPredictionPanel } from './components/features/DelayPredictionPanel'
 import { PersonalCommuteAssistant } from './components/features/PersonalCommuteAssistant'
-import { QRScanner } from './components/features/QRScanner'
-import { SavedCommutes } from './components/features/SavedCommutes'
-import { JourneyPassport } from './components/features/JourneyPassport'
+import { ScanHub } from './components/features/ScanHub'
+import { CommuteAIAgent } from './components/features/CommuteAIAgent'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { BookmarkPlus, CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Stamp, Ticket } from 'lucide-react'
+import { CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
+import { Reveal } from './components/motion/Reveal'
+import { useLanguage } from './contexts/LanguageContext'
+import { useAgent } from './contexts/AgentContext'
+import type { ScanInsight } from './types/agent'
 
 type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport'
 
 function HomePage() {
+  const { t } = useLanguage()
+  const { sendMessage } = useAgent()
   const [activeTab, setActiveTab] = useState<Tab>('planner')
   const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
 
@@ -49,6 +55,14 @@ function HomePage() {
     document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const handleAskAi = (insight: ScanInsight) => {
+    setActiveTab('assistant')
+    document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
+    void sendMessage(
+      `I just scanned a ${insight.documentType} (${insight.source}). Summary: ${insight.summary}. What should I do next to beat the jam?`,
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans">
       <Navbar />
@@ -67,21 +81,19 @@ function HomePage() {
         </div>
 
         {/* Main Tab Area */}
-        <div className="container relative z-30 pb-20">
-          <div className="flex gap-1.5 mb-6 bg-white p-1 rounded-xl shadow-lg w-fit mx-auto md:mx-0 border flex-wrap">
+        <div className="container relative z-30 pb-20 max-w-6xl">
+          <div className="flex gap-1.5 mb-6 bg-white p-1.5 rounded-xl shadow-lg w-fit mx-auto border flex-wrap">
             {([
-              { id: 'planner', label: 'Route Planner', icon: <Search className="h-4 w-4" /> },
-              { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
-              { id: 'scanner', label: 'QR Scanner', icon: <QrCode className="h-4 w-4" /> },
-              { id: 'assistant', label: 'Commute AI', icon: <Sparkles className="h-4 w-4" /> },
-              { id: 'commutes', label: 'Saved Commutes', icon: <BookmarkPlus className="h-4 w-4" /> },
-              { id: 'passport', label: 'Passport', icon: <Stamp className="h-4 w-4" /> },
-            ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
+              { id: 'planner' as const, label: t.tabs.planner, icon: <Search className="h-4 w-4" /> },
+              { id: 'tickets' as const, label: t.tabs.tickets, icon: <Ticket className="h-4 w-4" /> },
+              { id: 'scanner' as const, label: t.tabs.scanner, icon: <ScanText className="h-4 w-4" /> },
+              { id: 'assistant' as const, label: t.tabs.assistant, icon: <Sparkles className="h-4 w-4" /> },
+            ]).map(tab => (
               <Button
                 key={tab.id}
                 variant={activeTab === tab.id ? 'default' : 'ghost'}
                 onClick={() => setActiveTab(tab.id)}
-                className="rounded-lg h-11 px-5 font-bold"
+                className={`rounded-lg h-11 px-5 font-bold transition-all ${activeTab === tab.id ? 'shadow-[0_0_20px_-4px_hsl(var(--primary))]' : ''}`}
               >
                 {tab.icon}
                 <span className="ml-2">{tab.label}</span>
@@ -89,26 +101,38 @@ function HomePage() {
             ))}
           </div>
 
-          {activeTab === 'planner' && <RoutePlanner />}
-          {activeTab === 'tickets' && <TicketList />}
-          {activeTab === 'scanner' && <QRScanner />}
-          {activeTab === 'assistant' && <PersonalCommuteAssistant />}
-          {activeTab === 'commutes' && <SavedCommutes />}
-          {activeTab === 'passport' && <JourneyPassport />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {activeTab === 'planner' && <RoutePlanner />}
+              {activeTab === 'tickets' && <TicketList />}
+              {activeTab === 'scanner' && <QRScanner />}
+              {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+            </motion.div>
+          </AnimatePresence>
 
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
-              { label: 'Smart Route Planner', value: 'GTFS-aware ETA + fastest transfers', icon: <MapPinned className="h-5 w-5 text-primary" /> },
-              { label: 'Line Feature Engine', value: 'Dynamic UI per line USP', icon: <Cpu className="h-5 w-5 text-primary" /> },
-              { label: 'Offline Cache', value: 'Routes + stations stored for no-signal zones', icon: <CloudLightning className="h-5 w-5 text-primary" /> },
-            ].map((item) => (
-              <div key={item.label} className="p-5 border rounded-2xl bg-card shadow-sm space-y-2">
-                <div className="flex items-center gap-3 font-semibold text-primary">
-                  {item.icon}
-                  {item.label}
+              { icon: <MapPinned className="h-5 w-5 text-primary" /> },
+              { icon: <Cpu className="h-5 w-5 text-primary" /> },
+              { icon: <CloudLightning className="h-5 w-5 text-primary" /> },
+            ].map((item, index) => (
+              <Reveal key={t.highlights[index].title} delay={index * 0.08}>
+                <div className="group p-5 border rounded-2xl bg-card shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 space-y-2">
+                  <div className="flex items-center gap-3 font-semibold text-primary">
+                    <span className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary group-hover:[&>svg]:text-primary-foreground transition-colors">
+                      {item.icon}
+                    </span>
+                    {t.highlights[index].title}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{t.highlights[index].description}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">{item.value}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
-import { TrendingDown, TrendingUp, Minus, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { TrendingDown, TrendingUp, Minus, AlertTriangle, CheckCircle2, Clock, Flag } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { Badge } from '../ui/badge'
 import { fetchIncidents } from '../../lib/dosmApi'
 import { predictLineDelays, LINE_COLORS } from '../../lib/delayPrediction'
 import type { LineDelayPrediction } from '../../lib/delayPrediction'
+import { submitDelayReport, fetchReportCounts, type ReportCounts } from '../../lib/delayReports'
+import type { TransitLineCode } from '../../lib/transitData'
 
 const SEVERITY_COLORS = {
   none: 'bg-green-50 border-green-200',
@@ -29,17 +30,40 @@ function TrendIcon({ trend }: { trend: LineDelayPrediction['trend'] }) {
 export function DelayPredictionPanel() {
   const [predictions, setPredictions] = useState<LineDelayPrediction[]>([])
   const [loading, setLoading] = useState(true)
+  const [reportCounts, setReportCounts] = useState<ReportCounts>({})
+  const [reporting, setReporting] = useState<TransitLineCode | null>(null)
+  const [justReported, setJustReported] = useState<TransitLineCode | null>(null)
+
+  const refreshCounts = useCallback(async () => {
+    const counts = await fetchReportCounts()
+    setReportCounts(counts)
+  }, [])
 
   useEffect(() => {
     fetchIncidents().then(incidents => {
       setPredictions(predictLineDelays(incidents))
       setLoading(false)
     })
+    refreshCounts()
     const interval = setInterval(() => {
       fetchIncidents().then(incidents => setPredictions(predictLineDelays(incidents)))
+      refreshCounts()
     }, 60_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [refreshCounts])
+
+  const handleReport = async (line: TransitLineCode, severity: LineDelayPrediction['severity']) => {
+    if (reporting) return
+    setReporting(line)
+    try {
+      await submitDelayReport(line, severity === 'none' ? 'minor' : severity)
+      await refreshCounts()
+      setJustReported(line)
+      setTimeout(() => setJustReported(null), 3000)
+    } finally {
+      setReporting(null)
+    }
+  }
 
   const delayedCount = predictions.filter(p => p.severity !== 'none').length
 
@@ -85,7 +109,7 @@ export function DelayPredictionPanel() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground truncate max-w-[70%]">{p.cause}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[60%]">{p.cause}</p>
                   <div className="flex items-center gap-1">
                     {p.severity === 'none' ? (
                       <CheckCircle2 className="h-3 w-3 text-green-600" />
@@ -94,6 +118,25 @@ export function DelayPredictionPanel() {
                     )}
                     <span className="text-[10px] text-muted-foreground">{p.confidence}% conf.</span>
                   </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-black/5">
+                  <button
+                    onClick={() => handleReport(p.line, p.severity)}
+                    disabled={reporting === p.line || justReported === p.line}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Flag className="h-3 w-3" />
+                    {justReported === p.line
+                      ? 'Reported — thanks!'
+                      : reporting === p.line
+                      ? 'Submitting…'
+                      : 'Report delay'}
+                  </button>
+                  {(reportCounts[p.line] ?? 0) > 0 && (
+                    <span className="text-[10px] text-destructive font-semibold">
+                      {reportCounts[p.line]} report{reportCounts[p.line] === 1 ? '' : 's'}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
