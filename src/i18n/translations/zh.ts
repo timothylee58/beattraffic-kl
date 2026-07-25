@@ -46,6 +46,8 @@ export const zh: Translations = {
     commutes: '已保存路线',
     passport: '旅程护照',
     heatmap: '人流热图',
+    getoff: '下车提醒',
+    leaderboard: '排行榜',
   },
   scanner: {
     title: '扫描与 OCR 中心',

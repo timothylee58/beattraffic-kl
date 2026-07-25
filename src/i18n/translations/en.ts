@@ -47,6 +47,8 @@ export const en: Translations = {
     commutes: 'Saved Commutes',
     passport: 'Passport',
     heatmap: 'Crowd Map',
+    getoff: 'Get-Off Alert',
+    leaderboard: 'Leaderboard',
   },
   scanner: {
     title: 'Scan & OCR Hub',
