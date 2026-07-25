@@ -6,6 +6,10 @@ import { Reveal } from '../motion/Reveal'
 import { AnimatedCounter } from '../motion/AnimatedCounter'
 import { fetchIncidents, fetchStationsFromDosm } from '../../lib/dosmApi'
 import { predictCrowdLevel } from '../../lib/predictiveEngine'
+import {
+  CROWD_COLORS, CROWD_DOT, heuristicCrowdLabel,
+  fetchLineCrowdSummaries, type CrowdPrediction,
+} from '../../lib/crowdPrediction'
 import type { CrowdForecast, TransitIncident, TransitStation } from '../../lib/transitData'
 
 const LABEL_GLOW: Record<string, string> = {
@@ -19,13 +23,19 @@ export function TransitIntelligencePanel() {
   const [stations, setStations] = useState<TransitStation[]>([])
   const [incidents, setIncidents] = useState<TransitIncident[]>([])
   const [forecasts, setForecasts] = useState<CrowdForecast[]>([])
+  const [mlCrowd, setMlCrowd] = useState<CrowdPrediction[]>([])
 
   useEffect(() => {
     const load = async () => {
-      const [stationData, incidentData] = await Promise.all([fetchStationsFromDosm(), fetchIncidents()])
+      const [stationData, incidentData, mlData] = await Promise.all([
+        fetchStationsFromDosm(),
+        fetchIncidents(),
+        fetchLineCrowdSummaries(),
+      ])
       setStations(stationData)
       setIncidents(incidentData)
       setForecasts(stationData.slice(0, 5).map((station) => predictCrowdLevel(station, incidentData)))
+      if (mlData) setMlCrowd(mlData)
     }
 
     void load()
