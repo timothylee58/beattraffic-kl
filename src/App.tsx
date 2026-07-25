@@ -14,12 +14,14 @@ import { TransitIntelligencePanel } from './components/features/TransitIntellige
 import { DelayPredictionPanel } from './components/features/DelayPredictionPanel'
 import { PersonalCommuteAssistant } from './components/features/PersonalCommuteAssistant'
 import { QRScanner } from './components/features/QRScanner'
+import { SavedCommutes } from './components/features/SavedCommutes'
+import { JourneyPassport } from './components/features/JourneyPassport'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Ticket } from 'lucide-react'
+import { BookmarkPlus, CloudLightning, Cpu, MapPinned, QrCode, Search, Sparkles, Stamp, Ticket } from 'lucide-react'
 import { Button } from './components/ui/button'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport'
 
 function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('planner')
@@ -72,6 +74,8 @@ function HomePage() {
               { id: 'tickets', label: 'My Tickets', icon: <Ticket className="h-4 w-4" /> },
               { id: 'scanner', label: 'QR Scanner', icon: <QrCode className="h-4 w-4" /> },
               { id: 'assistant', label: 'Commute AI', icon: <Sparkles className="h-4 w-4" /> },
+              { id: 'commutes', label: 'Saved Commutes', icon: <BookmarkPlus className="h-4 w-4" /> },
+              { id: 'passport', label: 'Passport', icon: <Stamp className="h-4 w-4" /> },
             ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
               <Button
                 key={tab.id}
@@ -89,6 +93,8 @@ function HomePage() {
           {activeTab === 'tickets' && <TicketList />}
           {activeTab === 'scanner' && <QRScanner />}
           {activeTab === 'assistant' && <PersonalCommuteAssistant />}
+          {activeTab === 'commutes' && <SavedCommutes />}
+          {activeTab === 'passport' && <JourneyPassport />}
 
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
