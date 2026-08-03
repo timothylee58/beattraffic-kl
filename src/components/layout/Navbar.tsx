@@ -6,6 +6,8 @@ import { Button } from '../ui/button'
 import { useAuth } from '../../hooks/useAuth'
 import { blink } from '../../lib/blink'
 import { EASE_OUT_EXPO, slideDown } from '../motion/variants'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function Navbar() {
   const { user, isAuthenticated } = useAuth()
