@@ -7,6 +7,7 @@ import { GradientText } from '../motion/GradientText'
 import { MotionButton } from '../motion/MotionButton'
 import { TiltCard } from '../motion/TiltCard'
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from '../motion/variants'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface HeroSectionProps {
   onPlanRoute: () => void
