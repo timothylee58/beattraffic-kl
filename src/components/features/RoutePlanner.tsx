@@ -14,6 +14,7 @@ import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '
 import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/modalCost'
 import { fetchNearbyEvents, hasHighImpactEvent, eventImpactLabel, type KLEvent } from '../../lib/eventApi'
 import { fallbackStations } from '../../lib/transitData'
+import { trackEvent } from '../../lib/analytics'
 import { toast } from 'react-hot-toast'
 
 interface Station {
@@ -88,6 +89,12 @@ export function RoutePlanner() {
     ])
     const allEvents = [...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))]
     setNearbyEvents(allEvents)
+    trackEvent('fare_calculated', {
+      from_station_id: from,
+      to_station_id: to,
+      fare: calculatedFare,
+      nearby_event_count: allEvents.length,
+    })
 
     // Check for delays on the from-station's line
     try {
@@ -115,6 +122,13 @@ export function RoutePlanner() {
         fare: selectedAlt ? selectedAlt.fare : fare!,
         status: 'active',
         qr_code: `RAPIDKL-${ticketId}-${from}-${to}`,
+      })
+      trackEvent('ticket_purchased', {
+        from_station_id: from,
+        to_station_id: to,
+        fare: selectedAlt ? selectedAlt.fare : fare!,
+        used_alternative: selectedAlt ? 1 : 0,
+        alternative_id: selectedAlt?.label ?? '',
       })
       toast.success('Ticket purchased successfully!')
       setFare(null)
@@ -261,7 +275,16 @@ export function RoutePlanner() {
       {fare !== null && alternatives.length > 0 && (
         <AlternativeRoutePanel
           delayMinutes={routeDelay}
-          onSelect={route => { setSelectedAlt(route); toast.success(`Switched to: ${route.label}`) }}
+          onSelect={route => {
+            setSelectedAlt(route)
+            trackEvent('alternative_route_selected', {
+              from_station_id: from,
+              to_station_id: to,
+              alternative_id: route.label,
+              fare: route.fare,
+            })
+            toast.success(`Switched to: ${route.label}`)
+          }}
         />
       )}
 

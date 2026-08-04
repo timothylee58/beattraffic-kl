@@ -7,3 +7,4 @@ anthropic==0.34.2
 python-dotenv==1.0.1
 onnxruntime==1.19.2
 numpy>=1.26,<3
+clickhouse-driver==0.2.9
