@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'orchestration-api/**'
+      - 'ml/**'
       - 'docker-compose.yml'
 jobs:
   deploy:

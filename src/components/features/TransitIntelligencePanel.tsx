@@ -34,7 +34,7 @@ export function TransitIntelligencePanel() {
       ])
       setStations(stationData)
       setIncidents(incidentData)
-      setForecasts(stationData.slice(0, 5).map((station) => predictCrowdLevel(station, incidentData)))
+      setForecasts(await Promise.all(stationData.slice(0, 5).map((station) => predictCrowdLevel(station, incidentData))))
       if (mlData) setMlCrowd(mlData)
     }
 
