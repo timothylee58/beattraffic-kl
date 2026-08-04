@@ -89,12 +89,6 @@ export function RoutePlanner() {
     ])
     const allEvents = [...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))]
     setNearbyEvents(allEvents)
-    trackEvent('fare_calculated', {
-      from_station_id: from,
-      to_station_id: to,
-      fare: calculatedFare,
-      nearby_event_count: allEvents.length,
-    })
 
     // Check for delays on the from-station's line
     try {
