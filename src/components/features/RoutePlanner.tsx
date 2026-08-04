@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, MapPin, ArrowRightLeft, TrainFront, AlertTriangle, Car, Footprints } from 'lucide-react'
+import { Search, MapPin, ArrowRightLeft, TrainFront, AlertTriangle, Car, Footprints, CalendarDays } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -12,6 +12,8 @@ import { getAlternativeRoutes } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
 import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '../../lib/goklApi'
 import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/modalCost'
+import { fetchNearbyEvents, hasHighImpactEvent, eventImpactLabel, type KLEvent } from '../../lib/eventApi'
+import { fallbackStations } from '../../lib/transitData'
 import { toast } from 'react-hot-toast'
 
 interface Station {
@@ -33,6 +35,7 @@ export function RoutePlanner() {
   const [goklRoutes, setGoklRoutes] = useState<GoKLRoute[]>([])
   const [goklStops, setGoklStops] = useState<GoKLStop[]>([])
   const [modalCost, setModalCost] = useState<ModalCostResult | null>(null)
+  const [nearbyEvents, setNearbyEvents] = useState<KLEvent[]>([])
 
   useEffect(() => {
     loadStations()
@@ -65,15 +68,32 @@ export function RoutePlanner() {
     setFare(calculatedFare)
     setSelectedAlt(null)
     setModalCost(null)
+    setNearbyEvents([])
+
+    // Coords from GTFS fallback table (best-effort; may be undefined for DB-only stations)
+    const fromCoords = fallbackStations.find(s => s.id === from || s.name === fromStation?.name)
+    const toCoords   = fallbackStations.find(s => s.id === to   || s.name === toStation?.name)
 
     // Compute multi-modal cost comparison
-    const distKm = (fromStation as any)?.lat && (toStation as any)?.lat
-      ? haversineKm(
-          (fromStation as any).lat, (fromStation as any).lon,
-          (toStation as any).lat, (toStation as any).lon
-        )
+    const distKm = fromCoords && toCoords
+      ? haversineKm(fromCoords.lat, fromCoords.lon, toCoords.lat, toCoords.lon)
       : Math.max(1, distance * 0.8)
     setModalCost(estimateModalCost(calculatedFare, distKm))
+
+    // Fetch nearby events for origin + destination concurrently
+    const KL_CENTER = { lat: 3.149, lon: 101.697 }
+    const [fromEvents, toEvents] = await Promise.all([
+      fetchNearbyEvents(
+        fromCoords?.lat ?? KL_CENTER.lat,
+        fromCoords?.lon ?? KL_CENTER.lon,
+      ),
+      fetchNearbyEvents(
+        toCoords?.lat ?? KL_CENTER.lat,
+        toCoords?.lon ?? KL_CENTER.lon,
+      ),
+    ])
+    const allEvents = [...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))]
+    setNearbyEvents(allEvents)
 
     // Check for delays on the from-station's line
     try {
@@ -196,6 +216,21 @@ export function RoutePlanner() {
                 <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
                   <span className="font-semibold">Alternative selected:</span> {selectedAlt.label}
                   <button onClick={() => setSelectedAlt(null)} className="ml-auto text-xs underline text-green-700">Clear</button>
+                </div>
+              )}
+
+              {nearbyEvents.length > 0 && (
+                <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+                  <CalendarDays className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">{eventImpactLabel(nearbyEvents)}</span>
+                    <ul className="mt-1 space-y-0.5 text-xs text-blue-700">
+                      {nearbyEvents.map(e => (
+                        <li key={e.id}>{e.name} — <span className="font-medium">{e.venue}</span></li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-blue-600">Expect higher crowds near these stations.</p>
+                  </div>
                 </div>
               )}
 

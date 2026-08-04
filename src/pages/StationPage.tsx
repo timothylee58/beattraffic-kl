@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '../components/ui/button'
@@ -8,9 +9,14 @@ import { predictCrowdLevel } from '../lib/predictiveEngine'
 export default function StationPage() {
   const { stationId } = useParams<{ stationId: string }>()
   const navigate = useNavigate()
+  const [crowdScore, setCrowdScore] = useState(40)
 
   const station = fallbackStations.find(s => s.id === stationId)
-  const crowdScore = station ? predictCrowdLevel(station, []).score : 40
+
+  useEffect(() => {
+    if (!station) return
+    predictCrowdLevel(station, []).then(f => setCrowdScore(f.score))
+  }, [station?.id])
 
   return (
     <div className="min-h-screen bg-background">
