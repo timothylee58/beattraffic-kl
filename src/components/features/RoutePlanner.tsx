@@ -15,6 +15,8 @@ import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/
 import { fetchNearbyEvents, hasHighImpactEvent, eventImpactLabel, type KLEvent } from '../../lib/eventApi'
 import { fallbackStations } from '../../lib/transitData'
 import { trackEvent } from '../../lib/analytics'
+import { calculateZonalFare, buildFareSummary, type FareSummary } from '../../lib/fareEngine'
+import { cacheRoute, getCachedRoute } from '../../lib/offlineCache'
 import { toast } from 'react-hot-toast'
 
 interface Station {
@@ -37,6 +39,8 @@ export function RoutePlanner() {
   const [goklStops, setGoklStops] = useState<GoKLStop[]>([])
   const [modalCost, setModalCost] = useState<ModalCostResult | null>(null)
   const [nearbyEvents, setNearbyEvents] = useState<KLEvent[]>([])
+  const [fareSummary, setFareSummary] = useState<FareSummary | null>(null)
+  const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
     loadStations()
@@ -62,10 +66,26 @@ export function RoutePlanner() {
 
     const fromStation = stations.find(s => s.id === from)
     const toStation = stations.find(s => s.id === to)
-    const fromIndex = stations.findIndex(s => s.id === from)
-    const toIndex = stations.findIndex(s => s.id === to)
-    const distance = Math.abs(fromIndex - toIndex)
-    const calculatedFare = 2.0 + distance * 0.5
+    // Zonal fare from Prasarana table; zone defaults to 2 for unknown stations
+    const fromZone = fallbackStations.find(s => s.id === from || s.name === fromStation?.name)?.zone ?? 2
+    const toZone = fallbackStations.find(s => s.id === to || s.name === toStation?.name)?.zone ?? 2
+    const rawFare = calculateZonalFare(fromZone, toZone)
+
+    // Fare cap: query today's + week's spend from ticket history
+    let spentToday = 0
+    let spentThisWeek = 0
+    if (user) {
+      try {
+        const { data: allTickets } = await blink.db.tickets.list({ filter: { user_id: user.id } })
+        const todayStr = new Date(); todayStr.setHours(0, 0, 0, 0)
+        const weekStr = new Date(); weekStr.setDate(weekStr.getDate() - 6); weekStr.setHours(0, 0, 0, 0)
+        spentToday = (allTickets ?? []).filter((t: any) => new Date(t.created_at ?? 0) >= todayStr).reduce((s: number, t: any) => s + (t.fare ?? 0), 0)
+        spentThisWeek = (allTickets ?? []).filter((t: any) => new Date(t.created_at ?? 0) >= weekStr).reduce((s: number, t: any) => s + (t.fare ?? 0), 0)
+      } catch { /* ignore — no cap applied if query fails */ }
+    }
+    const summary = buildFareSummary(rawFare, spentToday, spentThisWeek)
+    setFareSummary(summary)
+    const calculatedFare = summary.finalFare
     setFare(calculatedFare)
     setSelectedAlt(null)
     setModalCost(null)
@@ -78,7 +98,7 @@ export function RoutePlanner() {
     // Compute multi-modal cost comparison
     const distKm = fromCoords && toCoords
       ? haversineKm(fromCoords.lat, fromCoords.lon, toCoords.lat, toCoords.lon)
-      : Math.max(1, distance * 0.8)
+      : 3 // default 3 km when coords unknown
     setModalCost(estimateModalCost(calculatedFare, distKm))
 
     // Fetch nearby events for origin + destination concurrently
@@ -98,8 +118,15 @@ export function RoutePlanner() {
         ? delays.find(d => d.line === (fromStation.line as any))?.estimatedDelay ?? 0
         : 0
       setRouteDelay(lineDelay)
+      // Cache alternatives for offline fallback
+      const alts = getAlternativeRoutes(lineDelay)
+      cacheRoute(from, to, alts).catch(() => {})
+      setIsOffline(false)
     } catch {
       setRouteDelay(0)
+      // Try offline cache
+      const cached = await getCachedRoute(from, to)
+      if (cached) setIsOffline(true)
     }
   }
 
@@ -126,6 +153,7 @@ export function RoutePlanner() {
       })
       toast.success('Ticket purchased successfully!')
       setFare(null)
+      setFareSummary(null)
       setFrom('')
       setTo('')
       setRouteDelay(0)
@@ -207,6 +235,11 @@ export function RoutePlanner() {
 
           {fare !== null && (
             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+              {isOffline && (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700">
+                  <span>Offline — showing last cached route</span>
+                </div>
+              )}
               {routeDelay > 0 && !selectedAlt && (
                 <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-800">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -237,12 +270,25 @@ export function RoutePlanner() {
               )}
 
               <div className="p-6 bg-secondary rounded-xl space-y-4">
+                {fareSummary?.isCapped && (
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm text-emerald-800">
+                    <span className="font-semibold">Daily cap applied</span> — RM {fareSummary.dailyRemaining.toFixed(2)} remaining today
+                  </div>
+                )}
+                {fareSummary && fareSummary.weeklyRemaining < 5 && (
+                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-800">
+                    Weekly cap: RM {fareSummary.spentThisWeek.toFixed(2)} / RM 25.00 spent — RM {fareSummary.weeklyRemaining.toFixed(2)} left
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Estimated Fare</p>
                     <p className="text-3xl font-bold text-primary">
                       RM {(selectedAlt ? selectedAlt.fare : fare).toFixed(2)}
                     </p>
+                    {fareSummary?.isCapped && (
+                      <p className="text-xs text-muted-foreground line-through">RM {fareSummary.rawFare.toFixed(2)} standard</p>
+                    )}
                   </div>
                   <Button
                     size="lg"
