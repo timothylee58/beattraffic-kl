@@ -23,14 +23,15 @@ import { GetOffNotification } from './components/features/GetOffNotification'
 import { CommuteLeaderboard } from './components/features/CommuteLeaderboard'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
-import { BellRing, BookmarkPlus, CloudLightning, Cpu, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
+import { MapPage } from './pages/MapPage'
+import { BellRing, BookmarkPlus, CloudLightning, Cpu, Map, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
 import { useLanguage } from './contexts/LanguageContext'
 import { useAgent } from './contexts/AgentContext'
 import type { ScanInsight } from './types/agent'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap' | 'getoff' | 'leaderboard'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap' | 'getoff' | 'leaderboard' | 'map'
 
 function HomePage() {
   const { t } = useLanguage()
@@ -98,6 +99,7 @@ function HomePage() {
               { id: 'heatmap' as const, label: t.tabs.heatmap, icon: <Users className="h-4 w-4" /> },
               { id: 'getoff' as const, label: t.tabs.getoff, icon: <BellRing className="h-4 w-4" /> },
               { id: 'leaderboard' as const, label: t.tabs.leaderboard, icon: <Trophy className="h-4 w-4" /> },
+              { id: 'map' as const, label: 'Map', icon: <Map className="h-4 w-4" /> },
             ]).map(tab => (
               <Button
                 key={tab.id}
@@ -128,6 +130,7 @@ function HomePage() {
               {activeTab === 'heatmap' && <CrowdHeatmap />}
               {activeTab === 'getoff' && <GetOffNotification />}
               {activeTab === 'leaderboard' && <CommuteLeaderboard />}
+              {activeTab === 'map' && <div className="rounded-xl overflow-hidden shadow-xl" style={{ height: '70vh' }}><MapPage /></div>}
             </motion.div>
           </AnimatePresence>
 
@@ -169,6 +172,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/station/:stationId" element={<StationPage />} />
+      <Route path="/map" element={<MapPage />} />
     </Routes>
   )
 }

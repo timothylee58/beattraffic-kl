@@ -19,15 +19,29 @@ export interface GtfsTrip {
   trip_headsign: string
 }
 
+import { cacheGtfsStops, getCachedStops } from './offlineCache'
+
 const BASE = 'https://api.data.gov.my/gtfs-static/prasarana?category='
 
-// cache per category
+// in-memory cache per category
 const cache: Record<string, { stops: GtfsStop[]; stopTimes: GtfsStopTime[]; trips: GtfsTrip[] }> = {}
 
 async function fetchZip(category: string) {
   if (cache[category]) return cache[category]
-  const res = await fetch(`${BASE}${category}`)
-  if (!res.ok) throw new Error(`GTFS fetch failed: ${res.status}`)
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${category}`, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) throw new Error(`GTFS fetch failed: ${res.status}`)
+  } catch {
+    // Network unavailable — return cached stops if available
+    const cached = await getCachedStops()
+    if (cached) {
+      cache[category] = { stops: cached, stopTimes: [], trips: [] }
+      return cache[category]
+    }
+    throw new Error('GTFS unavailable offline and no cache found')
+  }
   const buf = await res.arrayBuffer()
 
   // Parse the ZIP in-browser using a minimal approach
@@ -75,6 +89,8 @@ async function fetchZip(category: string) {
   }))
 
   cache[category] = { stops, stopTimes, trips }
+  // Persist stops for offline use (best-effort)
+  cacheGtfsStops(stops).catch(() => {})
   return cache[category]
 }
 
