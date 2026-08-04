@@ -6,6 +6,7 @@ import { Badge } from '../ui/badge'
 import { blink } from '../../lib/blink'
 import { useAuth } from '../../hooks/useAuth'
 import { loadPassport, recordVisit, buildShareCard, type PassportState } from '../../lib/journeyPassport'
+import { trackEvent } from '../../lib/analytics'
 
 const VOUCHER_COLORS = [
   'bg-gray-100 text-gray-600',
@@ -39,6 +40,7 @@ export function JourneyPassport() {
     const station = DEMO_STATIONS.find(s => s.id === logStation)
     if (!station) return
     setPassport(recordVisit(station.id, station.name))
+    trackEvent('station_visit_stamped', { from_station_id: station.id })
     setLogStation('')
   }
 

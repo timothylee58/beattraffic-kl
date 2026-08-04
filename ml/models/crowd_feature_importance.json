@@ -1,0 +1,22 @@
+{
+  "hour_sin": 834,
+  "hour_cos": 873,
+  "dow_sin": 1100,
+  "dow_cos": 644,
+  "minute_of_day": 3398,
+  "is_peak": 99,
+  "is_weekend": 55,
+  "is_ph": 62,
+  "is_eve_of_ph": 85,
+  "is_school_holiday": 94,
+  "line_id": 1321,
+  "station_id": 2481,
+  "is_interchange": 275,
+  "prev_crowd_t_15": 112,
+  "prev_crowd_t_30": 89,
+  "prev_tap_t_15": 4130,
+  "prev_tap_t_30": 3649,
+  "weather_code": 560,
+  "event_within_2km": 114,
+  "transfer_inflow": 4019
+}

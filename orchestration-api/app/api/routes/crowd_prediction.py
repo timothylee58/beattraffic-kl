@@ -13,6 +13,7 @@ ONNX model path: $CROWD_MODEL_PATH  (default: ml/models/crowd_model.onnx
 """
 from __future__ import annotations
 
+import datetime as dt
 import math
 import os
 from datetime import datetime, timezone
@@ -158,7 +159,7 @@ class CrowdPredictResponse(BaseModel):
 # ── Route ──────────────────────────────────────────────────────────────────────
 
 @router.post('/crowd', response_model=CrowdPredictResponse)
-def predict_crowd(payload: CrowdPredictRequest) -> CrowdPredictResponse:
+async def predict_crowd(payload: CrowdPredictRequest) -> CrowdPredictResponse:
     time_ctx = _auto_time()
 
     # Fill optional time fields from server clock
@@ -209,7 +210,9 @@ def predict_crowd(payload: CrowdPredictRequest) -> CrowdPredictResponse:
             )
             for i, sf in enumerate(payload.stations)
         ]
-        return CrowdPredictResponse(predictions=predictions, model='onnx')
+        response = CrowdPredictResponse(predictions=predictions, model='onnx')
+        await _track_predictions(response, payload, time_ctx)
+        return response
 
     # Heuristic fallback — same time bucket applies to all stations
     hour, dow = time_ctx['_hour'], time_ctx['_dow']
@@ -224,4 +227,35 @@ def predict_crowd(payload: CrowdPredictRequest) -> CrowdPredictResponse:
         )
         for sf in payload.stations
     ]
-    return CrowdPredictResponse(predictions=predictions, model='heuristic')
+    response = CrowdPredictResponse(predictions=predictions, model='heuristic')
+    await _track_predictions(response, payload, time_ctx)
+    return response
+
+
+async def _track_predictions(
+    response: CrowdPredictResponse,
+    payload: CrowdPredictRequest,
+    time_ctx: dict,
+) -> None:
+    from app.analytics import track_batch
+    now = dt.datetime.utcnow()
+    rows = []
+    for sf, pred in zip(payload.stations, response.predictions):
+        rows.append({
+            'served_at': now,
+            'line_id': pred.line_id,
+            'station_id': pred.station_id,
+            'crowd_level': pred.crowd_level,
+            'label': pred.label,
+            'p_low': pred.probability[0],
+            'p_moderate': pred.probability[1],
+            'p_high': pred.probability[2],
+            'model_type': response.model,
+            'is_peak': time_ctx['is_peak'],
+            'is_weekend': time_ctx['is_weekend'],
+            'is_ph': sf.is_ph,
+            'weather_code': sf.weather_code,
+            'event_within_2km': sf.event_within_2km,
+            'minute_of_day': time_ctx['minute_of_day'],
+        })
+    await track_batch('crowd_predictions', rows)

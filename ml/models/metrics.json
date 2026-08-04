@@ -1,0 +1,76 @@
+{
+  "version": "v1-synthetic",
+  "trained_at": "2026-08-04T06:30:12Z",
+  "data_source": "synthetic (120k rows) \u2014 replace with real DOSM tap-count logs",
+  "features": [
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "minute_of_day",
+    "is_peak",
+    "is_weekend",
+    "is_ph",
+    "is_eve_of_ph",
+    "is_school_holiday",
+    "line_id",
+    "station_id",
+    "is_interchange",
+    "prev_crowd_t_15",
+    "prev_crowd_t_30",
+    "prev_tap_t_15",
+    "prev_tap_t_30",
+    "weather_code",
+    "event_within_2km",
+    "transfer_inflow"
+  ],
+  "n_features": 20,
+  "classes": {
+    "0": "Low",
+    "1": "Moderate",
+    "2": "High"
+  },
+  "val_accuracy": 0.899,
+  "per_class": {
+    "Low": {
+      "precision": 0.93,
+      "recall": 0.954,
+      "f1": 0.942,
+      "support": 12650
+    },
+    "Moderate": {
+      "precision": 0.792,
+      "recall": 0.743,
+      "f1": 0.767,
+      "support": 4002
+    },
+    "High": {
+      "precision": 0.901,
+      "recall": 0.858,
+      "f1": 0.879,
+      "support": 1348
+    }
+  },
+  "confusion_matrix": [
+    [
+      12062,
+      588,
+      0
+    ],
+    [
+      903,
+      2972,
+      127
+    ],
+    [
+      0,
+      192,
+      1156
+    ]
+  ],
+  "notes": [
+    "Trained on synthetic data; per-class accuracy will improve with real tap-count logs.",
+    "Moderate class is hardest to distinguish \u2014 expand DOSM OD data to add daily volume as a feature.",
+    "ONNX opset 15, 20 input features, 3-class output (probabilities + argmax)."
+  ]
+}

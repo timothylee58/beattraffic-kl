@@ -56,7 +56,7 @@ except ImportError:
 
 try:
     import onnxmltools
-    from skl2onnx.common.data_types import FloatTensorType
+    from onnxmltools.convert.common.data_types import FloatTensorType
     HAS_ONNX = True
 except ImportError:
     HAS_ONNX = False
@@ -283,7 +283,7 @@ def _export_onnx(model, X_sample: pd.DataFrame, out_dir: Path) -> None:
         return
     n_features = X_sample.shape[1]
     initial_type = [("float_input", FloatTensorType([None, n_features]))]
-    onnx_model = onnxmltools.convert_lightgbm(model, initial_types=initial_type, target_opset=17)
+    onnx_model = onnxmltools.convert_lightgbm(model, initial_types=initial_type, target_opset=15)
     onnx_path = out_dir / "crowd_model.onnx"
     with open(onnx_path, "wb") as f:
         f.write(onnx_model.SerializeToString())

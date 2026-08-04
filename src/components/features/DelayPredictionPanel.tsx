@@ -6,6 +6,7 @@ import { predictLineDelays, LINE_COLORS } from '../../lib/delayPrediction'
 import type { LineDelayPrediction } from '../../lib/delayPrediction'
 import { submitDelayReport, fetchReportCounts, type ReportCounts } from '../../lib/delayReports'
 import type { TransitLineCode } from '../../lib/transitData'
+import { trackEvent } from '../../lib/analytics'
 
 const SEVERITY_COLORS = {
   none: 'bg-green-50 border-green-200',
@@ -57,6 +58,7 @@ export function DelayPredictionPanel() {
     setReporting(line)
     try {
       await submitDelayReport(line, severity === 'none' ? 'minor' : severity)
+      trackEvent('delay_reported', { from_station_id: line })
       await refreshCounts()
       setJustReported(line)
       setTimeout(() => setJustReported(null), 3000)
