@@ -23,3 +23,8 @@ firebase/functions/lib
 *.njsproj
 *.sln
 *.sw?
+
+# ML model binaries (large; tracked via metrics.json instead)
+ml/models/*.onnx
+ml/models/*.lgb
+ml/models/*.csv
