@@ -23,16 +23,16 @@ const LINE_ID: Record<string, number> = {
   BRT_SUNWAY: 7,
 }
 
-/** Stations per line — mirrors the training data ranges. */
+/** Stations per line — must stay aligned with STATIONS_PER_LINE in ml/train_crowd_model.py. */
 const STATIONS_PER_LINE: Record<number, number> = {
-  0: 36, // MRT_PUTRAJAYA
-  1: 37, // MRT_KAJANG
+  0: 16, // MRT_PUTRAJAYA
+  1: 31, // MRT_KAJANG
   2: 37, // LRT_KELANA_JAYA
-  3: 13, // LRT_AMPANG
-  4: 24, // LRT_SRI_PETALING
+  3: 18, // LRT_AMPANG
+  4: 26, // LRT_SRI_PETALING
   5: 11, // MONORAIL
   6: 56, // KTM_KOMUTER
-  7: 6,  // BRT_SUNWAY
+  7: 5,  // BRT_SUNWAY
 }
 
 /** Stable integer index for a station ID, bounded to the line's station range. */
@@ -47,7 +47,8 @@ function _stationIdx(stationId: string, lineId: number): number {
 function _mlLabel(level: number, probs: number[]): CrowdForecast['label'] {
   if (level === 0) return 'calm'
   if (level === 1) return 'moderate'
-  return (probs[2] ?? 0) > 0.70 ? 'critical' : 'busy'
+  const p2 = Array.isArray(probs) && probs.length >= 3 ? probs[2] : 0
+  return p2 > 0.70 ? 'critical' : 'busy'
 }
 
 /** Weighted probability → 0-100 score (mirrors TransitIntelligencePanel display). */
