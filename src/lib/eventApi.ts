@@ -44,7 +44,6 @@ const MOCK_EVENTS: KLEvent[] = [
     venue: 'KL Tower',
     lat: 3.1528,
     lon: 101.7035,
-    ..._daysFromNow(1, 6, 12),
     startAt: _daysFromNow(1, 6, 12).start,
     endAt: _daysFromNow(1, 6, 12).end,
     estimatedAttendance: 'high',

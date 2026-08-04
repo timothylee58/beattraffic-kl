@@ -81,16 +81,10 @@ export function RoutePlanner() {
     setModalCost(estimateModalCost(calculatedFare, distKm))
 
     // Fetch nearby events for origin + destination concurrently
-    const KL_CENTER = { lat: 3.149, lon: 101.697 }
+    // Skip sides with unknown coordinates to avoid showing KL-centre events as station-relevant
     const [fromEvents, toEvents] = await Promise.all([
-      fetchNearbyEvents(
-        fromCoords?.lat ?? KL_CENTER.lat,
-        fromCoords?.lon ?? KL_CENTER.lon,
-      ),
-      fetchNearbyEvents(
-        toCoords?.lat ?? KL_CENTER.lat,
-        toCoords?.lon ?? KL_CENTER.lon,
-      ),
+      fromCoords ? fetchNearbyEvents(fromCoords.lat, fromCoords.lon) : Promise.resolve([]),
+      toCoords ? fetchNearbyEvents(toCoords.lat, toCoords.lon) : Promise.resolve([]),
     ])
     const allEvents = [...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))]
     setNearbyEvents(allEvents)

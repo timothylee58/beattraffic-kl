@@ -15,7 +15,9 @@ export default function StationPage() {
 
   useEffect(() => {
     if (!station) return
-    predictCrowdLevel(station, []).then(f => setCrowdScore(f.score))
+    let cancelled = false
+    predictCrowdLevel(station, []).then(f => { if (!cancelled) setCrowdScore(f.score) })
+    return () => { cancelled = true }
   }, [station?.id])
 
   return (

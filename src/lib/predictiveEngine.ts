@@ -23,23 +23,37 @@ const LINE_ID: Record<string, number> = {
   BRT_SUNWAY: 7,
 }
 
-/** Stable integer index for a station ID (no runtime lookup table needed). */
-function _stationIdx(stationId: string): number {
+/** Stations per line — mirrors the training data ranges. */
+const STATIONS_PER_LINE: Record<number, number> = {
+  0: 36, // MRT_PUTRAJAYA
+  1: 37, // MRT_KAJANG
+  2: 37, // LRT_KELANA_JAYA
+  3: 13, // LRT_AMPANG
+  4: 24, // LRT_SRI_PETALING
+  5: 11, // MONORAIL
+  6: 56, // KTM_KOMUTER
+  7: 6,  // BRT_SUNWAY
+}
+
+/** Stable integer index for a station ID, bounded to the line's station range. */
+function _stationIdx(stationId: string, lineId: number): number {
   let h = 0
   for (const c of stationId) h = (h * 31 + c.charCodeAt(0)) & 0xffff
-  return h % 37  // 37 < min(stations_per_line) for all lines
+  const range = STATIONS_PER_LINE[lineId] ?? 37
+  return h % range
 }
 
 /** Map ML label (0/1/2) + probabilities to the legacy CrowdForecast vocabulary. */
 function _mlLabel(level: number, probs: number[]): CrowdForecast['label'] {
   if (level === 0) return 'calm'
   if (level === 1) return 'moderate'
-  return probs[2] > 0.70 ? 'critical' : 'busy'
+  return (probs[2] ?? 0) > 0.70 ? 'critical' : 'busy'
 }
 
 /** Weighted probability → 0-100 score (mirrors TransitIntelligencePanel display). */
 function _mlScore(probs: number[]): number {
-  return Math.round(probs[0] * 18 + probs[1] * 52 + probs[2] * 90)
+  if (!Array.isArray(probs) || probs.length < 3) return 40
+  return Math.round((probs[0] ?? 0) * 18 + (probs[1] ?? 0) * 52 + (probs[2] ?? 0) * 90)
 }
 
 // ── Heuristic fallback (sync, always available) ────────────────────────────
@@ -101,7 +115,7 @@ export async function predictCrowdLevel(
           stations: [
             {
               line_id: LINE_ID[station.line] ?? 0,
-              station_id: _stationIdx(station.id),
+              station_id: _stationIdx(station.id, LINE_ID[station.line] ?? 0),
               is_interchange: station.zone === 1 ? 1 : 0,
               event_within_2km: eventNearby ? 1 : 0,
               // weather_code omitted → defaults to 0 (clear) server-side
