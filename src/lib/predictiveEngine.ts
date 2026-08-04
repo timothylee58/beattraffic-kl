@@ -1,11 +1,19 @@
 /**
  * Crowd prediction engine.
  *
- * Tries POST ${VITE_ORCHESTRATION_API_URL}/predict/crowd first (the ONNX
- * LightGBM model served by orchestration-api). Falls back to the
- * time-of-week heuristic when the endpoint is unavailable or unconfigured —
- * same pattern as Firebase RAG → local retriever and DOSM API → fallback
- * stations used elsewhere in this codebase.
+ * Two-tier approach:
+ *   1. POST /predict/crowd/daily  — DOSM daily-volume regressor (v2).
+ *      Returns a base crowd_level (0/1/2) for the whole day.
+ *      Score is then scaled by an intraday multiplier so peak-hour
+ *      forecasts are higher than off-peak for the same day.
+ *
+ *   2. POST /predict/crowd        — 15-min LightGBM classifier (v1).
+ *      Used when the DOSM model is unavailable (model not yet trained).
+ *
+ *   3. Local heuristic            — used when orchestration-api is not
+ *      configured or both endpoints fail.
+ *
+ * Falls back silently at every layer — same pattern as the rest of the app.
  */
 import type { CrowdForecast, TransitIncident, TransitStation } from './transitData'
 
@@ -90,16 +98,83 @@ function _heuristicCrowdLevel(
   }
 }
 
+// ── Intraday multiplier (applied on top of daily base score) ──────────────
+
+/**
+ * Scale the base daily-volume score by time-of-day.
+ * Peak hours amplify, late night dampens, rest is neutral.
+ */
+function _intradayMultiplier(hour: number, isWeekend: boolean): number {
+  if (isWeekend) {
+    // Weekend: shopping/leisure pattern — midday peak
+    if (hour >= 11 && hour <= 15) return 1.35
+    if (hour >= 10 && hour <= 17) return 1.15
+    if (hour < 8 || hour >= 22)   return 0.45
+    return 0.85
+  }
+  // Weekday: twin-peak commute pattern
+  if (hour >= 7  && hour <= 9)  return 1.80  // AM peak
+  if (hour >= 17 && hour <= 20) return 1.90  // PM peak (slightly higher)
+  if (hour >= 11 && hour <= 14) return 1.10  // midday
+  if (hour < 6  || hour >= 23)  return 0.25  // late night
+  if (hour < 7  || hour >= 21)  return 0.60  // early/late shoulder
+  return 0.85
+}
+
+// ── Daily DOSM endpoint ────────────────────────────────────────────────────
+
+/**
+ * Call POST /predict/crowd/daily and blend with intraday multiplier.
+ * Returns null on any failure so callers can fall through.
+ */
+async function _dailyForecast(
+  station: TransitStation,
+  currentHour: number,
+): Promise<CrowdForecast | null> {
+  if (!ORCHESTRATION_URL) return null
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const res = await fetch(`${ORCHESTRATION_URL}/predict/crowd/daily`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ station_name: station.name, date: today }),
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) return null
+    const body = await res.json()
+    if (typeof body.crowd_level !== 'number') return null
+
+    const isWeekend = [0, 6].includes(new Date().getDay())
+    const mult      = _intradayMultiplier(currentHour, isWeekend)
+
+    // Map base crowd_level → base score midpoint, then scale intraday
+    const baseScore = body.crowd_level === 0 ? 20 : body.crowd_level === 1 ? 50 : 78
+    const score     = Math.min(100, Math.round(baseScore * mult))
+
+    return {
+      stationId:  station.id,
+      line:       station.line,
+      forecastAt: new Date().toISOString(),
+      score,
+      label: _getCrowdLabel(score),
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
  * Returns a crowd forecast for `station`.
  *
- * Calls the ONNX endpoint when VITE_ORCHESTRATION_API_URL is set;
- * falls back to the heuristic silently on any failure.
+ * Priority:
+ *   1. DOSM daily regressor → scaled by intraday multiplier (most accurate)
+ *   2. 15-min ONNX classifier (if daily model not yet trained)
+ *   3. Local heuristic (always available)
  *
  * @param eventNearby Pass true when fetchNearbyEvents() returned results —
- *   sets the event_within_2km feature flag for the ML model.
+ *   sets the event_within_2km feature flag for the 15-min ML model.
  */
 export async function predictCrowdLevel(
   station: TransitStation,
@@ -107,6 +182,11 @@ export async function predictCrowdLevel(
   currentHour = new Date().getHours(),
   eventNearby = false,
 ): Promise<CrowdForecast> {
+  // Tier 1: daily DOSM regressor
+  const daily = await _dailyForecast(station, currentHour)
+  if (daily) return daily
+
+  // Tier 2: 15-min ONNX classifier
   if (ORCHESTRATION_URL) {
     try {
       const res = await fetch(`${ORCHESTRATION_URL}/predict/crowd`, {
@@ -119,7 +199,6 @@ export async function predictCrowdLevel(
               station_id: _stationIdx(station.id, LINE_ID[station.line] ?? 0),
               is_interchange: station.zone === 1 ? 1 : 0,
               event_within_2km: eventNearby ? 1 : 0,
-              // weather_code omitted → defaults to 0 (clear) server-side
             },
           ],
         }),
@@ -139,8 +218,10 @@ export async function predictCrowdLevel(
         }
       }
     } catch {
-      // network error, timeout, or malformed response → fall through
+      // fall through to heuristic
     }
   }
+
+  // Tier 3: local heuristic
   return _heuristicCrowdLevel(station, incidents, currentHour)
 }
