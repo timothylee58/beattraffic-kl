@@ -1,5 +1,15 @@
 CREATE DATABASE IF NOT EXISTS beattraffic;
 
+-- ── Raw tables ─────────────────────────────────────────────────────────────────
+-- TTL policy (applied to the datetime ORDER BY column):
+--   crowd_predictions  — high write volume; keep 90 days
+--   api_requests       — high write volume; keep 90 days
+--   user_events        — lower volume, needed for fare-cap history; keep 1 year
+--   transit_incidents  — sparse; keep 1 year
+--
+-- Partitioning by month lets ClickHouse drop entire expired partitions without
+-- a full-table merge, making TTL eviction cheap.
+
 CREATE TABLE IF NOT EXISTS beattraffic.crowd_predictions
 (
     served_at        DateTime,
@@ -19,7 +29,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.crowd_predictions
     minute_of_day    UInt16
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(served_at)
-ORDER BY (served_at, line_id, station_id);
+ORDER BY (served_at, line_id, station_id)
+TTL served_at + INTERVAL 90 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE TABLE IF NOT EXISTS beattraffic.user_events
 (
@@ -37,7 +49,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.user_events
     extra                String
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(event_time)
-ORDER BY (event_time, event_type, user_id);
+ORDER BY (event_time, event_type, user_id)
+TTL event_time + INTERVAL 365 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE TABLE IF NOT EXISTS beattraffic.api_requests
 (
@@ -49,7 +63,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.api_requests
     request_id   String
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(request_time)
-ORDER BY (request_time, path);
+ORDER BY (request_time, path)
+TTL request_time + INTERVAL 90 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE TABLE IF NOT EXISTS beattraffic.transit_incidents
 (
@@ -61,9 +77,18 @@ CREATE TABLE IF NOT EXISTS beattraffic.transit_incidents
     reported_at DateTime
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(fetched_at)
-ORDER BY (fetched_at, line);
+ORDER BY (fetched_at, line)
+TTL fetched_at + INTERVAL 365 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
--- Materialized view: hourly crowd aggregates per station
+
+-- ── Materialized views ─────────────────────────────────────────────────────────
+-- Aggregated tables inherit retention from the source data naturally:
+-- once source rows expire, no new aggregations are written for that window.
+-- We add a matching TTL on the aggregate tables so old hourly/daily buckets
+-- are also reclaimed (set slightly longer than source so the MV has time to
+-- process all source rows before they expire).
+
 CREATE TABLE IF NOT EXISTS beattraffic.station_crowd_hourly
 (
     hour       DateTime,
@@ -75,7 +100,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.station_crowd_hourly
     count      AggregateFunction(count, UInt64)
 ) ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(hour)
-ORDER BY (hour, line_id, station_id, is_peak, is_weekend);
+ORDER BY (hour, line_id, station_id, is_peak, is_weekend)
+TTL hour + INTERVAL 120 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS beattraffic.station_crowd_hourly_mv
 TO beattraffic.station_crowd_hourly
@@ -91,7 +118,7 @@ SELECT
 FROM beattraffic.crowd_predictions
 GROUP BY hour, line_id, station_id, is_peak, is_weekend;
 
--- Materialized view: daily purchase funnel
+
 CREATE TABLE IF NOT EXISTS beattraffic.fare_funnel_daily
 (
     day        Date,
@@ -99,7 +126,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.fare_funnel_daily
     cnt        AggregateFunction(count, UInt64)
 ) ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (day, event_type);
+ORDER BY (day, event_type)
+TTL day + INTERVAL 400 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS beattraffic.fare_funnel_daily_mv
 TO beattraffic.fare_funnel_daily
@@ -112,7 +141,7 @@ FROM beattraffic.user_events
 WHERE event_type IN ('fare_calculated', 'ticket_purchased')
 GROUP BY day, event_type;
 
--- Materialized view: daily incident count per line
+
 CREATE TABLE IF NOT EXISTS beattraffic.line_delay_daily
 (
     day      Date,
@@ -120,7 +149,9 @@ CREATE TABLE IF NOT EXISTS beattraffic.line_delay_daily
     inc_cnt  AggregateFunction(count, UInt64)
 ) ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (day, line);
+ORDER BY (day, line)
+TTL day + INTERVAL 400 DAY DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS beattraffic.line_delay_daily_mv
 TO beattraffic.line_delay_daily
