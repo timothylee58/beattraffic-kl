@@ -8,7 +8,7 @@ import { blink } from '../../lib/blink'
 import { useAuth } from '../../hooks/useAuth'
 import { fetchIncidents } from '../../lib/dosmApi'
 import { predictLineDelays } from '../../lib/delayPrediction'
-import { getAlternativeRoutes } from '../../lib/alternativeRoutes'
+import { getAlternativeRoutes, getAlternativeRoutesSync } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
 import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '../../lib/goklApi'
 import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/modalCost'
@@ -119,7 +119,11 @@ export function RoutePlanner() {
         : 0
       setRouteDelay(lineDelay)
       // Cache alternatives for offline fallback
-      const alts = getAlternativeRoutes(lineDelay)
+      const alts = await getAlternativeRoutes(
+        lineDelay,
+        fromCoords ?? null,
+        toCoords ?? null,
+      )
       cacheRoute(from, to, alts).catch(() => {})
       setIsOffline(false)
     } catch {
@@ -166,7 +170,7 @@ export function RoutePlanner() {
     }
   }
 
-  const alternatives = getAlternativeRoutes(routeDelay)
+  const alternatives = getAlternativeRoutesSync(routeDelay)
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
