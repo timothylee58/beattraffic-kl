@@ -65,20 +65,25 @@ services:
       retries: 5
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana-oss:11.1.0
     ports: ["3005:3000"]
     volumes:
       - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources:ro
       - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
     environment:
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
+      # Install the official Grafana ClickHouse datasource plugin at startup.
+      # This is the correct mechanism — no unsigned-plugin workaround needed.
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ""
     depends_on:
       clickhouse: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.3-alpine
@@ -129,3 +134,4 @@ services:
 volumes:
   clickhouse_data:
   otp_graph:
+  grafana_data:
