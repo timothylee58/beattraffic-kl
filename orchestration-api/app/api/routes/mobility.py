@@ -132,10 +132,14 @@ async def mobility_query(payload: MobilityRequest) -> MobilityResponse:
     # Step 3: Claude synthesises the answer
     answer = await call_claude(MOBILITY_SYSTEM, context)
 
-    # Track data sources used
+    # Track data sources used (use the source field set by parking.py)
     sources = []
     if carparks:
-        sources.append("kongsi_parking" if any(c["available_bays"] is not None for c in carparks) else "dbkl_static")
+        seen = {c["source"] for c in carparks}
+        if "kongsi" in seen:
+            sources.append("kongsi_parking")
+        if "dbkl_static" in seen:
+            sources.append("dbkl_static")
     if crowd:
         sources.append(f"crowd_{crowd.get('model', 'heuristic')}")
 

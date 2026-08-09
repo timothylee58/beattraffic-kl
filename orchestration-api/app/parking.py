@@ -30,6 +30,7 @@ class Carpark(TypedDict):
     capacity: int
     rate_myr_per_hour: float
     walk_minutes: int            # estimated walk from target location
+    source: str                  # "kongsi" | "dbkl_static"
 
 
 # ── DBKL static carpark dataset ───────────────────────────────────────────────
@@ -106,21 +107,28 @@ async def _fetch_kongsi(lat: float, lon: float, radius_km: float) -> list[Carpar
             resp.raise_for_status()
             data = resp.json()
     except Exception:
-        return None
+        return None  # None signals API failure → fall back to DBKL
 
     carparks: list[Carpark] = []
     for cp in data.get("carparks", []):
-        dist = _haversine_km(lat, lon, cp["lat"], cp["lon"])
-        carparks.append(Carpark(
-            name=cp["name"],
-            lat=cp["lat"],
-            lon=cp["lon"],
-            available_bays=cp.get("available"),
-            capacity=cp.get("capacity", 0),
-            rate_myr_per_hour=float(cp.get("rate", 0)),
-            walk_minutes=_walk_minutes(dist),
-        ))
-    return carparks or None
+        try:
+            dist = _haversine_km(lat, lon, cp["lat"], cp["lon"])
+            carparks.append(Carpark(
+                name=cp["name"],
+                lat=cp["lat"],
+                lon=cp["lon"],
+                available_bays=cp.get("available"),
+                capacity=cp.get("capacity", 0),
+                rate_myr_per_hour=float(cp.get("rate", 0)),
+                walk_minutes=_walk_minutes(dist),
+                source="kongsi",
+            ))
+        except (KeyError, TypeError, ValueError):
+            # Skip malformed rows; don't abort the whole lookup
+            continue
+    # Return the list even when empty (Kongsi returned 0 results near the user);
+    # only return None when the API call itself failed (caught above).
+    return carparks
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -137,7 +145,8 @@ async def fetch_nearby_parking(
 
     Tries Kongsi real-time API first; falls back to DBKL static data.
     """
-    # Tier 1: real-time Kongsi API
+    # Tier 1: real-time Kongsi API (None means the call failed; [] means no
+    # carparks found nearby — a valid empty response still skips the fallback)
     kongsi = await _fetch_kongsi(lat, lon, radius_km)
     if kongsi is not None:
         return sorted(kongsi, key=lambda c: c["walk_minutes"])[:limit]
@@ -155,6 +164,7 @@ async def fetch_nearby_parking(
                 capacity=cp["capacity"],
                 rate_myr_per_hour=cp["rate_myr_per_hour"],
                 walk_minutes=_walk_minutes(dist),
+                source="dbkl_static",
             ))
 
     return sorted(results, key=lambda c: c["walk_minutes"])[:limit]

@@ -56,7 +56,11 @@ async def call_claude(
     if tools:
         kwargs["tools"] = tools
 
-    msg = await client.messages.create(**kwargs)
+    try:
+        msg = await client.messages.create(**kwargs)
+    except Exception as exc:
+        # Covers auth errors, rate limits, network faults, invalid model, etc.
+        return f"[Claude API error: {type(exc).__name__}] Query: {user_prompt[:120]}"
 
     # Extract first text block; handle tool_use responses gracefully
     for block in msg.content:
@@ -68,12 +72,18 @@ async def call_claude(
 # ── Intent router (keyword-based, sync) ───────────────────────────────────────
 
 def intent_router(state: NOCState) -> NOCState:
+    import re
     query = state.get("query", "").lower()
     if any(t in query for t in ["cost", "spend", "finops", "budget"]):
         state["intent"] = "finops"
     elif any(t in query for t in ["health", "uptime", "latency", "error"]):
         state["intent"] = "health"
-    elif any(t in query for t in ["park", "parking", "carpark", "drive", "ride"]):
+    elif any(
+        re.search(rf"\b{re.escape(t)}\b", query)
+        for t in ["park", "parking", "carpark", "drive", "ride", "lrt", "commute"]
+    ):
+        # Word-boundary matching prevents "override" from triggering "ride",
+        # "overpark" from triggering "park", etc.
         state["intent"] = "mobility"
     else:
         state["intent"] = "general"
