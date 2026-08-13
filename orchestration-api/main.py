@@ -8,6 +8,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.crowd_prediction import router as crowd_router
 from app.api.routes.crowd_prediction_daily import router as crowd_daily_router
 from app.api.routes.analytics import router as analytics_router
+from app.api.routes.mobility import router as mobility_router
 
 app = FastAPI(title='Orchestration API', version='0.1.0')
 app.include_router(agent_router)
@@ -16,6 +17,7 @@ app.include_router(health_router)
 app.include_router(crowd_router)
 app.include_router(crowd_daily_router)
 app.include_router(analytics_router)
+app.include_router(mobility_router)
 
 
 @app.middleware('http')

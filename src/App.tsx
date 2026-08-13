@@ -24,14 +24,15 @@ import { CommuteLeaderboard } from './components/features/CommuteLeaderboard'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
 import { MapPage } from './pages/MapPage'
-import { BellRing, BookmarkPlus, CloudLightning, Cpu, Map, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
+import { ParkingFinder } from './components/features/ParkingFinder'
+import { BellRing, BookmarkPlus, Car, CloudLightning, Cpu, Map, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Reveal } from './components/motion/Reveal'
 import { useLanguage } from './contexts/LanguageContext'
 import { useAgent } from './contexts/AgentContext'
 import type { ScanInsight } from './types/agent'
 
-type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap' | 'getoff' | 'leaderboard' | 'map'
+type Tab = 'planner' | 'tickets' | 'scanner' | 'assistant' | 'commutes' | 'passport' | 'heatmap' | 'getoff' | 'leaderboard' | 'map' | 'parking'
 
 function HomePage() {
   const { t } = useLanguage()
@@ -100,6 +101,7 @@ function HomePage() {
               { id: 'getoff' as const, label: t.tabs.getoff, icon: <BellRing className="h-4 w-4" /> },
               { id: 'leaderboard' as const, label: t.tabs.leaderboard, icon: <Trophy className="h-4 w-4" /> },
               { id: 'map' as const, label: 'Map', icon: <Map className="h-4 w-4" /> },
+              { id: 'parking' as const, label: 'Park & Ride', icon: <Car className="h-4 w-4" /> },
             ]).map(tab => (
               <Button
                 key={tab.id}
@@ -131,6 +133,7 @@ function HomePage() {
               {activeTab === 'getoff' && <GetOffNotification />}
               {activeTab === 'leaderboard' && <CommuteLeaderboard />}
               {activeTab === 'map' && <div className="rounded-xl overflow-hidden shadow-xl" style={{ height: '70vh' }}><MapPage /></div>}
+              {activeTab === 'parking' && <ParkingFinder />}
             </motion.div>
           </AnimatePresence>
 
