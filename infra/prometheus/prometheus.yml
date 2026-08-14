@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Load alerting rules from the same directory
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # FastAPI orchestration-api — /metrics exposed by prometheus-fastapi-instrumentator
+  - job_name: orchestration-api
+    static_configs:
+      - targets: [orchestration-api:8000]
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Redis — uses the built-in INFO command exporter via redis_exporter if deployed,
+  # or the lightweight redis_exporter sidecar.  Disabled by default; uncomment when
+  # redis_exporter is added to docker-compose.yml.
+  # - job_name: redis
+  #   static_configs:
+  #     - targets: [redis-exporter:9121]
+
+  # ClickHouse — requires clickhouse-exporter or the built-in HTTP metrics endpoint.
+  # Disabled by default; uncomment when the exporter is running.
+  # - job_name: clickhouse
+  #   static_configs:
+  #     - targets: [clickhouse:9363]

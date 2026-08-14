@@ -56,8 +56,16 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./infra/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
     ports: ["9090:9090"]
+    depends_on:
+      orchestration-api: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 20s
