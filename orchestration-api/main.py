@@ -2,6 +2,7 @@ import time
 import uuid
 
 from fastapi import FastAPI, Request
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.api.routes.agent import router as agent_router
 from app.api.routes.webhook import router as webhook_router
 from app.api.routes.health import router as health_router
@@ -11,6 +12,10 @@ from app.api.routes.analytics import router as analytics_router
 from app.api.routes.mobility import router as mobility_router
 
 app = FastAPI(title='Orchestration API', version='0.1.0')
+
+# Expose /metrics for Prometheus scraping (latency, request count, status codes)
+Instrumentator().instrument(app).expose(app)
+
 app.include_router(agent_router)
 app.include_router(webhook_router)
 app.include_router(health_router)
