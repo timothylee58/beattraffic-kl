@@ -1,20 +1,27 @@
 import datetime
+import hmac
 import os
 import uuid
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix='/webhook', tags=['webhook'])
 
 # The slack-bot internal server exposes /ingest on INTERNAL_PORT (default 3001).
-# In docker-compose the service is named "slack-bot"; env var SLACK_BOT_INGEST_URL
-# overrides for local dev where you may need http://localhost:3001/ingest.
+# In docker-compose the service is named "slack-bot"; SLACK_BOT_INGEST_URL
+# overrides this for local dev (e.g. http://localhost:3001/ingest).
 _SLACK_BOT_URL = os.environ.get(
     'SLACK_BOT_INGEST_URL',
     'http://slack-bot:3001/ingest',
 )
+
+# Optional shared secret for the /webhook/alerts endpoint.
+# When set, callers must include X-Webhook-Secret: <secret> in the request.
+# Leave unset in local dev / docker-compose internal networks where the
+# endpoint is not reachable from the public internet.
+_WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 
 
 class AlertPayload(BaseModel):
@@ -23,23 +30,19 @@ class AlertPayload(BaseModel):
     region: str | None = None
 
 
-def forward_to_bot(alert: dict) -> None:
+async def forward_to_bot(alert: dict) -> None:
     """
-    POST the alert to the slack-bot's internal /ingest endpoint.
+    Async POST of the alert to the slack-bot's internal /ingest endpoint.
 
-    Runs in a FastAPI BackgroundTask (plain sync function run in a thread pool).
-    Failures are logged but never re-raised — a Slack posting error must not
+    Uses httpx.AsyncClient so the call does not block a worker thread.
+    Failures are logged and swallowed — a Slack delivery outage must not
     fail the HTTP response back to the Prometheus Alertmanager / caller.
     """
     try:
-        resp = httpx.post(
-            _SLACK_BOT_URL,
-            json=alert,
-            timeout=5.0,
-        )
-        resp.raise_for_status()
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(_SLACK_BOT_URL, json=alert)
+            resp.raise_for_status()
     except Exception as exc:
-        # Log but swallow — Slack delivery is best-effort
         import logging
         logging.getLogger(__name__).warning(
             "forward_to_bot: could not reach slack-bot at %s — %s: %s",
@@ -63,9 +66,19 @@ async def _persist_incident(alert: dict) -> None:
 
 
 @router.post('/alerts')
-async def ingest_alert(payload: AlertPayload, tasks: BackgroundTasks):
+async def ingest_alert(
+    payload: AlertPayload,
+    tasks: BackgroundTasks,
+    x_webhook_secret: str | None = Header(default=None, alias='X-Webhook-Secret'),
+):
+    # Enforce shared-secret when WEBHOOK_SECRET is configured.
+    if _WEBHOOK_SECRET:
+        if not x_webhook_secret or not hmac.compare_digest(x_webhook_secret, _WEBHOOK_SECRET):
+            raise HTTPException(status_code=403, detail='Invalid or missing X-Webhook-Secret')
+
     incident_id = f"INC-{uuid.uuid4().hex[:8].upper()}"
     alert = payload.model_dump() | {'incident_id': incident_id}
+    # forward_to_bot is now async — run it directly as a background task
     tasks.add_task(forward_to_bot, alert)
     await _persist_incident(alert)
     return {'accepted': True, 'incident_id': incident_id}

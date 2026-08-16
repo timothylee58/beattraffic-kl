@@ -19,7 +19,7 @@ async function start() {
   // Internal alert ingress — called by orchestration-api's forward_to_bot()
   internal.post('/ingest', (req, res) => {
     const alert = req.body as { incident_id: string; severity: string; region?: string; summary: string };
-    void handleIngestAlert(bolt, alert);
+    void handleIngestAlert(bolt, alert).catch((err) => console.error('[ingest] Unhandled alert error:', err));
     res.status(202).json({ accepted: true });
   });
 
