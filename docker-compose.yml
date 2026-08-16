@@ -58,11 +58,10 @@ services:
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
+      - prometheus_data:/prometheus
+    # Only override the config path — all other flags match image defaults
+    # and repeating them would risk drifting from future upstream changes.
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["9090:9090"]
     depends_on:
       orchestration-api: { condition: service_healthy }
@@ -143,3 +142,4 @@ volumes:
   clickhouse_data:
   otp_graph:
   grafana_data:
+  prometheus_data:

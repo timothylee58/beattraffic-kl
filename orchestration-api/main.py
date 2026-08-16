@@ -13,8 +13,9 @@ from app.api.routes.mobility import router as mobility_router
 
 app = FastAPI(title='Orchestration API', version='0.1.0')
 
-# Expose /metrics for Prometheus scraping (latency, request count, status codes)
-Instrumentator().instrument(app).expose(app)
+# Expose /metrics for Prometheus scraping (latency, request count, status codes).
+# Exclude /metrics itself so scrape requests don't self-loop in histograms.
+Instrumentator(excluded_handlers=['/metrics']).instrument(app).expose(app)
 
 app.include_router(agent_router)
 app.include_router(webhook_router)
@@ -33,12 +34,15 @@ async def record_request(request: Request, call_next):
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     request_id = request.headers.get('x-request-id') or uuid.uuid4().hex
-    await track('api_requests', {
-        'request_time': datetime.datetime.utcnow(),
-        'method': request.method,
-        'path': request.url.path,
-        'status_code': response.status_code,
-        'duration_ms': round(duration_ms, 2),
-        'request_id': request_id,
-    })
+    # Skip analytics tracking for the /metrics scrape endpoint — Prometheus
+    # polls it every 10-15 s, and we don't want scrape noise in ClickHouse.
+    if request.url.path != '/metrics':
+        await track('api_requests', {
+            'request_time': datetime.datetime.utcnow(),
+            'method': request.method,
+            'path': request.url.path,
+            'status_code': response.status_code,
+            'duration_ms': round(duration_ms, 2),
+            'request_id': request_id,
+        })
     return response
