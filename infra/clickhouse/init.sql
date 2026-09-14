@@ -162,3 +162,22 @@ SELECT
     countState()       AS inc_cnt
 FROM beattraffic.transit_incidents
 GROUP BY day, line;
+
+
+-- ── FinOps cost tracking ───────────────────────────────────────────────────────
+-- Stores per-service daily cost entries (populated by external billing exporters
+-- or manual ingestion).  Kept for 2 years; partitioned by month for cheap TTL.
+
+CREATE TABLE IF NOT EXISTS beattraffic.finops_costs
+(
+    event_date   Date,
+    service      LowCardinality(String),   -- e.g. 'anthropic', 'redis', 'clickhouse'
+    environment  LowCardinality(String),   -- 'prod' | 'staging'
+    cost_usd     Float64,
+    currency     LowCardinality(String) DEFAULT 'USD',
+    _inserted_at DateTime DEFAULT now()
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(event_date)
+ORDER BY (service, event_date)
+TTL event_date + INTERVAL 2 YEAR DELETE
+SETTINGS merge_with_ttl_timeout = 3600;
