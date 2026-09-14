@@ -50,7 +50,11 @@ def _pg_client():
         import psycopg2  # type: ignore
         import psycopg2.extras  # type: ignore
         conn = psycopg2.connect(POSTGRES_URL)
-        conn.set_session(readonly=True, autocommit=True)
+        # readonly=True prevents any accidental writes.
+        # autocommit must stay OFF (the default) so psycopg2 keeps an open
+        # transaction — named server-side cursors require one; DECLARE CURSOR
+        # fails immediately under autocommit mode.
+        conn.set_session(readonly=True)
         return conn
     except ImportError:
         log.error("psycopg2 not installed — run: pip install psycopg2-binary")
