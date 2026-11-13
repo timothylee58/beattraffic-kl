@@ -8,3 +8,6 @@ onnxruntime==1.19.2
 numpy>=1.26,<3
 clickhouse-driver==0.2.9
 prometheus-fastapi-instrumentator==7.0.0
+langgraph>=1.0,<2
+mcp>=2,<3
+psycopg[binary]>=3.2,<4

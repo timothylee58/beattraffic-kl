@@ -1,7 +1,9 @@
+import os
 import time
 import uuid
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.api.routes.agent import router as agent_router
 from app.api.routes.webhook import router as webhook_router
@@ -10,8 +12,17 @@ from app.api.routes.crowd_prediction import router as crowd_router
 from app.api.routes.crowd_prediction_daily import router as crowd_daily_router
 from app.api.routes.analytics import router as analytics_router
 from app.api.routes.mobility import router as mobility_router
+from app.api.routes.transit import router as transit_router
 
 app = FastAPI(title='Orchestration API', version='0.1.0')
+
+# Explicit allowlist (comma-separated CORS_ORIGINS); never '*', since POST endpoints can trigger tool calls.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',') if o.strip()],
+    allow_methods=['GET', 'POST'],
+    allow_headers=['Content-Type'],
+)
 
 # Expose /metrics for Prometheus scraping (latency, request count, status codes).
 # Exclude /metrics itself so scrape requests don't self-loop in histograms.
@@ -24,6 +35,7 @@ app.include_router(crowd_router)
 app.include_router(crowd_daily_router)
 app.include_router(analytics_router)
 app.include_router(mobility_router)
+app.include_router(transit_router)
 
 
 @app.middleware('http')

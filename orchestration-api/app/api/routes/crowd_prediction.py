@@ -94,6 +94,40 @@ def _auto_time() -> dict:
     }
 
 
+def time_ctx_for(when: datetime) -> dict:
+    """Same shape as _auto_time but for an explicit moment, read in Kuala Lumpur time."""
+    from zoneinfo import ZoneInfo
+
+    local = when.astimezone(ZoneInfo('Asia/Kuala_Lumpur')) if when.tzinfo else when
+    hour, dow = local.hour, local.weekday()
+    hs, hc = _cyclic(hour, 24)
+    ds, dc = _cyclic(dow, 7)
+    return {
+        'hour_sin': hs, 'hour_cos': hc, 'dow_sin': ds, 'dow_cos': dc,
+        'minute_of_day': hour * 60 + local.minute,
+        'is_peak': int(dow < 5 and ((7 <= hour <= 9) or (17 <= hour <= 20))),
+        'is_weekend': int(dow >= 5),
+        '_hour': hour, '_dow': dow,
+    }
+
+
+def predict_rows(rows: list[dict], time_ctx: dict) -> tuple[list[tuple[int, list[float]]], str]:
+    """
+    Pure inference helper shared by the HTTP route and the MCP crowd_forecast tool.
+    `rows` are dicts keyed by FEATURE_COLS. Returns ([(level, [p_low, p_mod, p_high])], model_name).
+    """
+    if _model_available():
+        session = _get_session()
+        X = np.array([[r[c] for c in FEATURE_COLS] for r in rows], dtype=np.float32)
+        out = session.run(None, {session.get_inputs()[0].name: X})
+        probs = (
+            [[d[k] for k in sorted(d)] for d in out[1]] if isinstance(out[1][0], dict) else out[1]
+        )
+        return [(int(out[0][i]), [round(float(p), 4) for p in probs[i]]) for i in range(len(rows))], 'onnx'
+    level, p = _heuristic_label(time_ctx['_hour'], time_ctx['_dow'])
+    return [(level, list(p)) for _ in rows], 'heuristic'
+
+
 def _heuristic_label(hour: int, dow: int) -> tuple[int, list[float]]:
     """Fallback when ONNX model is unavailable."""
     is_weekend = dow >= 5

@@ -339,6 +339,7 @@ Without Firebase env vars, Commute AI uses the bundled local hybrid retriever (`
 | `/` | `HomePage` | Public |
 | `/station/:stationId` | `StationPage` | Public |
 | `/admin` | `AdminDashboard` | Authenticated users only |
+| `/disruption` | `DisruptionPage` | Public |
 
 ---
 
@@ -373,6 +374,7 @@ All analytics writes go to the `beattraffic` database via `orchestration-api/app
 | `api_requests` | MergeTree | 90 days | Every HTTP request (method, path, status, latency) |
 | `transit_incidents` | MergeTree | 365 days | Incidents ingested via webhook |
 | `finops_costs` | MergeTree | 2 years | Per-service daily cost entries for FinOps queries |
+| `ridership_od_daily` | MergeTree | — | DOSM OD ridership; read by the `ridership_stats` MCP tool |
 | `station_crowd_hourly` | AggregatingMergeTree | 120 days | MV: hourly crowd roll-up per station |
 | `fare_funnel_daily` | AggregatingMergeTree | 400 days | MV: daily fare event funnel |
 | `line_delay_daily` | AggregatingMergeTree | 400 days | MV: daily incident count per line |
@@ -489,6 +491,107 @@ Stations that serve multiple lines (e.g. KL Sentral, Titiwangsa, Putra Heights) 
 
 ---
 
+## Transit Graph & Disruption Agent
+
+A KL commuter asks *"the line is down, how do I still get to KLCC by 9am?"*. The agent finds the relevant service notice, closes the affected edges in a transit graph, plans candidate routes, checks crowd forecasts on each, **verifies every leg exists in the graph**, and answers with the top two routes, their time and crowd level, and why the first one wins.
+
+```
+ notice text (untrusted)         ┌──────────────────────── MCP gateway (allowlist · rate limit · arg validation · audit log) ───────────────────────┐
+        │                        │  plan_route      crowd_forecast        ridership_stats           search_notices                                  │
+        ▼                        │  graph in        LightGBM (ONNX)       ClickHouse, read-only     pgvector (Postgres)                             │
+ ┌─ LangGraph agent ───────┐     │  Postgres        crowd level/station   parameterised aggregates  service_notices                                 │
+ │ parse ─► context ─►     │────►└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+ │ reweight ─► plan ─►     │
+ │ forecast ─► assess ─┐   │   assess: if the best route is crowded, add steering penalties and re-plan (max 3 iterations)
+ │      ▲──────────────┘   │
+ │ verify ─► answer        │   verify: re-checks every leg against the graph's edge index; failures are dropped, never shown
+ └─────────────────────────┘
+```
+
+**Graph.** Stations are nodes; edges are per-line rail segments (minutes from distance, speed and dwell) plus walking links. Routing is Dijkstra over `(station, line)` states so a line change is a priced transition: transfer walk + half the new line's headway + a 3-minute transfer penalty. Closures are line-scoped (shared trunk track: closing the Ampang Line between two stations does not close the Sri Petaling Line). Candidate routes come from diversification: soft-penalise the lines and stations of the best route and re-plan.
+
+**Tools** (`orchestration-api/mcp_server/`): `plan_route`, `crowd_forecast`, `ridership_stats`, `search_notices`. All four are read-only, validated by strict pydantic models (`extra="forbid"`), and reachable only through `ToolGateway`, which both the in-process agent and the MCP server (`python -m mcp_server.server`) use, so there is one allowlist, one rate limiter and one audit log. `plan_route` results are cached per `(graph version, origin, destination, disruption, k)`.
+
+**Every number comes from a tool.** The answer node is deterministic: it formats minutes, depart-by times and crowd probabilities returned by tools (plus arithmetic on them, such as the minute difference between routes). No LLM writes or edits numbers; the agent currently spends **0 tokens** per answer. The per-request budget is a tool-call cap (default 12) and the loop cap.
+
+**Tool-trace example** (`pasar_seni → klcc`, arrive by 09:00, question only, no notice supplied):
+
+```
+parse     source=notice:N002 confidence=high  closed_lines=[LRT_KELANA_JAYA]
+            tools: plan_route (baseline) → search_notices (line=KJ, k=5) → plan_route… (parse picks the newest notice that affects the baseline route)
+reweight  closed_edges=15
+plan      routes=3 cache_hit=False                                 tool: plan_route (closure, k=3)
+forecast  stations=9                                               tool: crowd_forecast
+assess    iteration=1 next=verify
+verify    verified=3 rejected=0
+answer    status=ok routes=2
+```
+
+### Security
+- **Notices are untrusted text.** `app/agent/parse.py` is a gazetteer + cue matcher: it can only emit station ids and line codes that already exist in the graph, and the only effect is which edges are closed. There is no path from notice text to a tool name or argument. Covered by tests (including a retrieved notice that says "IGNORE ALL PREVIOUS INSTRUCTIONS…") and by eval scenario S19.
+- **Tools stay read-only** and the allowlist is a code constant. ClickHouse access is parameterised and uses a read-only user with the server-side `readonly=1` setting (`infra/clickhouse/readonly_user.sql`). The `station`/`direction`/`day_type` inputs are validated and mapped to fixed SQL fragments; values go in as query parameters.
+- **HTTP**: CORS is an explicit allowlist (`CORS_ORIGINS`); the rate-limit identity is server-assigned from the source IP, not client-supplied.
+
+### Reliability
+- Forecast tool down → the routes are still returned, crowd fields are omitted and the answer says crowd data is missing. Nothing is invented.
+- No route exists → `status: no_route` with the reason (for example a Kelana-Jaya-only station when the whole line is suspended).
+- Metrics: `transit_agent_verify_rejections_total` and `transit_agent_loop_cap_hits_total` (alerts in `infra/prometheus/alert_rules.yml`); every tool call is in the audit log keyed by `trace_id`.
+
+### Evaluation (`orchestration-api/eval/`)
+40 **synthetic** scenarios (10 line closure, 10 station closure, 8 segment closure, 6 peak hour, 6 event crowd). Notices come from `app/rag/seed_notices.py` and crowd signals are simulated gate readings. Ground truth is independent of the router: legs are re-checked against the raw seed lists, reachability against a plain BFS, and tool use is read from the gateway audit log, not from the agent's own report.
+
+```bash
+cd orchestration-api
+pip install -r requirements-dev.txt
+python ../ml/train_crowd_model.py --rows 60000 --out /tmp/models   # synthetic-data LightGBM, ~10 s
+CROWD_MODEL_PATH=/tmp/models/crowd_model.onnx python -m eval.run_eval --forecaster onnx
+```
+
+Last run (real LightGBM/ONNX forecaster, in-memory notices, seed graph). `python -m eval.run_eval` exits non-zero if a hard gate fails, and CI runs it.
+
+| Metric | Result | Gate |
+|---|---|---|
+| Returned legs valid against the graph | 229 / 229 (100%) | hard, 100% |
+| Closures respected (no closed edge used) | 40 / 40 | hard, 100% |
+| Status matches BFS reachability and label | 40 / 40 | hard, 100% |
+| Correct tools chosen (from audit log) | 40 / 40 | hard, ≥ 95% |
+| Peak/event scenarios where the fastest route was High crowd | 11 / 12 | reported |
+| …of which the agent chose a lower-risk route | 8 / 12 (mean +3.1 min, worst-station p_high −0.98) | reported |
+| Verify rejections / loop-cap hits | 0 / 0 | alerting |
+| Tool calls per answer | median 2, max 5 | reported |
+| Tokens per answer | 0 (deterministic answer node) | reported |
+| Latency, cold route cache | p50 17.6 ms, p95 26.7 ms | reported |
+| Latency, warm route cache | p50 16.1 ms, p95 24.0 ms | reported |
+
+**Read these numbers with care.**
+- The crowd-aware result is on *simulated* signals. The model is `v1-synthetic`, trained on synthetic data, and it leans almost entirely on the last 15/30 minutes of crowd and tap-in readings. With no live fare-gate feed it falls back to neutral inputs and calls every station "Moderate" (p_high ≈ 0.01–0.03), so **crowd-aware routing cannot differentiate stations until a real gate feed supplies those signals**. The scenarios inject them; the answer carries a warning when none were supplied.
+- In 3 of 12 crowd scenarios the chosen route was not safer: every alternative also crossed a crowded hub or cost more than the crowd weight (10 minutes of travel time per unit of worst-station p_high) justified.
+- The scenario hubs were placed on the fastest route so there is something to steer around; that is a statement about scenario design, not about real traffic.
+- Latency is dominated by in-process routing on a 66-station graph; it says nothing about Postgres or ClickHouse round-trips, which the eval does not exercise.
+
+### Known limitations
+- The network is a **curated core subset** (66 stations, 6 lines) with approximate coordinates and distance-derived times (`app/transit/network_seed.py`). `ml/station_line_map.json` has no stop order or coordinates, so it cannot build edges. Replace the seed with the Prasarana GTFS pipeline; `Graph` and the Postgres schema do not change.
+- **Postgres/pgvector paths (`load_from_postgres`, `PgVectorNoticeStore`, `scripts/seed_transit.py`) and the ClickHouse `ridership_stats` query are written but untested against live servers**; tests and the eval use in-memory stand-ins. Notice embeddings are a dependency-free feature-hash (`HashEmbedder`, 256-d), not a semantic model.
+- Notices have no validity window or resolved state: the agent takes the newest notice that affects your normal route. A newer whole-line suspension therefore supersedes an older segment notice.
+- Lagged crowd inputs default to neutral; forecasts use each route's departure time for all of its stations.
+- The existing `POST /predict/crowd` route computes "peak" from the server's UTC hour, not Kuala Lumpur time. The new `time_ctx_for()` helper uses `Asia/Kuala_Lumpur`; the old route is unchanged.
+- The UI is a React/Vite page (`/disruption`) with MapLibre GL and shadcn/ui, matching this repo's stack, not a separate Next.js 15 app. Base tiles come from public OpenStreetMap; use your own tile provider in production.
+
+### Run it
+```bash
+# backend (seed graph + in-memory notices need no database)
+cd orchestration-api && pip install -r requirements-dev.txt && uvicorn main:app --reload
+# frontend
+VITE_ORCHESTRATION_API_URL=http://localhost:8000 bun run dev   # → http://localhost:5173/disruption
+# full data path
+docker-compose up postgres clickhouse && DATABASE_URL=postgresql://beattraffic:beattraffic_dev@localhost:5432/beattraffic python -m scripts.seed_transit
+python scripts/load_ridership_clickhouse.py --parquet ml/models/ridership.parquet
+# MCP server for other clients
+python -m mcp_server.server
+```
+
+---
+
 ## Roadmap
 
 - [ ] **AI Crowd Prediction v2** — blend ridership history, events, and weather for 30-min coach-load forecasts
@@ -502,6 +605,7 @@ Stations that serve multiple lines (e.g. KL Sentral, Titiwangsa, Putra Heights) 
 - [ ] **FinOps Billing Exporter** — wire Anthropic / cloud billing APIs to populate `finops_costs` automatically
 - [ ] **BAS.MY Live API** — replace mock bus data with registered BAS.MY API credentials
 - [ ] **Fare Caps** — auto top-up and daily/weekly fare cap logic per Prasarana rules
+- [x] **Transit Graph + Disruption Agent** — graph routing, MCP tools, LangGraph re-planner, 40-scenario eval, `/disruption` map UI
 - [ ] **Full GTFS Station Map** — replace `station_line_map.json` stubs with real Prasarana GTFS `stop_id` → `stop_name` mappings
 - [ ] **Safe-Walk Guidance** — incident clusters and late-night exit recommendations
 - [ ] **State-by-State Expansion** — Johor → Penang → Sarawak with localised operator feeds
