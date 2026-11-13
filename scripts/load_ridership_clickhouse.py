@@ -10,24 +10,39 @@ import argparse
 import os
 
 import pandas as pd
-from clickhouse_driver import Client
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--parquet", required=True)
-ap.add_argument("--batch", type=int, default=200_000)
-args = ap.parse_args()
-if args.batch < 1:
-    ap.error("--batch must be a positive integer")
 
-df = pd.read_parquet(args.parquet, columns=["date", "origin", "destination", "ridership"])
-df["date"] = pd.to_datetime(df["date"]).dt.date
-df["ridership"] = df["ridership"].clip(lower=0).astype("uint32")
-client = Client(host=os.getenv("CLICKHOUSE_HOST", "localhost"), database="beattraffic")
+def load_ridership(client, df: pd.DataFrame, batch: int = 200_000) -> tuple:
+    """Replace the date range covered by `df` and insert it. Returns (first_date, last_date)."""
+    if batch < 1:
+        raise ValueError("batch must be a positive integer")
+    df = df[["date", "origin", "destination", "ridership"]].copy()
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df["ridership"] = df["ridership"].clip(lower=0).astype("uint32")
+    lo, hi = df["date"].min(), df["date"].max()
+    # A plain MergeTree appends on every run, which would double avg_daily/max_daily. Replace the date range instead.
+    client.execute("ALTER TABLE ridership_od_daily DELETE WHERE date BETWEEN %(lo)s AND %(hi)s SETTINGS mutations_sync = 2",
+                   {"lo": lo, "hi": hi})
+    for i in range(0, len(df), batch):
+        client.execute("INSERT INTO ridership_od_daily (date, origin, destination, ridership) VALUES",
+                       df.iloc[i:i + batch].to_dict("records"))
+    return lo, hi
 
-# A plain MergeTree appends on every run, which would double avg_daily/max_daily. Replace the date range instead.
-lo, hi = df["date"].min(), df["date"].max()
-client.execute("ALTER TABLE ridership_od_daily DELETE WHERE date BETWEEN %(lo)s AND %(hi)s SETTINGS mutations_sync = 2", {"lo": lo, "hi": hi})
-for i in range(0, len(df), args.batch):
-    client.execute("INSERT INTO ridership_od_daily (date, origin, destination, ridership) VALUES",
-                   df.iloc[i:i + args.batch].to_dict("records"))
-print(f"loaded {len(df):,} rows for {lo}..{hi}")
+
+def main() -> None:
+    from clickhouse_driver import Client
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--parquet", required=True)
+    ap.add_argument("--batch", type=int, default=200_000)
+    args = ap.parse_args()
+    if args.batch < 1:
+        ap.error("--batch must be a positive integer")
+    df = pd.read_parquet(args.parquet, columns=["date", "origin", "destination", "ridership"])
+    client = Client(host=os.getenv("CLICKHOUSE_HOST", "localhost"), database="beattraffic")
+    lo, hi = load_ridership(client, df, args.batch)
+    print(f"loaded {len(df):,} rows for {lo}..{hi}")
+
+
+if __name__ == "__main__":
+    main()

@@ -97,7 +97,7 @@ class PgVectorNoticeStore:
         sql = """SELECT id, title, body, published_at, lines, synthetic, 1 - (embedding <=> %s::vector) AS score
                  FROM service_notices
                  WHERE (%s::text IS NULL OR cardinality(lines) = 0 OR %s = ANY(lines))
-                 ORDER BY embedding <=> %s::vector LIMIT %s"""
+                 ORDER BY embedding <=> %s::vector, published_at DESC, id LIMIT %s  -- ties: newest first, like the in-memory store"""
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
             cur.execute(sql, (qv, line, line, qv, k))
             return [(Notice(i, t, b, p, tuple(ls), s), float(sc)) for i, t, b, p, ls, s, sc in cur.fetchall()]
