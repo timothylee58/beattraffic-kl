@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest>=8
+pytest-asyncio>=0.23
+# model training for CI / local crowd model
+lightgbm
+scikit-learn
+pandas
+onnxmltools
+onnx

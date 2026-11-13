@@ -181,3 +181,15 @@ PARTITION BY toYYYYMM(event_date)
 ORDER BY (service, event_date)
 TTL event_date + INTERVAL 2 YEAR DELETE
 SETTINGS merge_with_ttl_timeout = 3600;
+
+
+-- ── Transit re-planner: DOSM OD ridership (loaded by scripts/load_ridership_clickhouse.py) ──
+CREATE TABLE IF NOT EXISTS beattraffic.ridership_od_daily
+(
+    date        Date,
+    origin      LowCardinality(String),
+    destination LowCardinality(String),
+    ridership   UInt32
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(date)
+ORDER BY (origin, date);

@@ -16,3 +16,20 @@ groups:
           severity: P2
         annotations:
           summary: "Sustained high latency"
+
+  - name: transit-agent-alerts
+    rules:
+      # A rejection means a candidate route referenced an edge that is not in the graph: investigate router/graph drift.
+      - alert: TransitAgentVerifyRejection
+        expr: increase(transit_agent_verify_rejections_total[15m]) > 0
+        labels:
+          severity: P2
+        annotations:
+          summary: "Transit agent dropped routes that failed graph verification"
+
+      - alert: TransitAgentLoopCapHits
+        expr: increase(transit_agent_loop_cap_hits_total[1h]) > 5
+        labels:
+          severity: P3
+        annotations:
+          summary: "Transit agent repeatedly hits its plan-and-check loop cap"
