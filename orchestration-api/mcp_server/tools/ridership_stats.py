@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.transit.dosm_names import dosm_name
 from mcp_server.context import ToolContext
 
 
@@ -20,6 +21,6 @@ def run(ctx: ToolContext, a: RidershipStatsArgs) -> dict:
     if sid is None:
         return {"ok": False, "error": f"unknown station: {a.station}"}
     name = ctx.graph.stations[sid].name
-    stats = ctx.ridership.daily_stats(name, a.direction, a.day_type, a.days)
+    stats = ctx.ridership.daily_stats(dosm_name(sid, name), a.direction, a.day_type, a.days)
     return {"ok": True, "station": sid, "name": name, "direction": a.direction, "day_type": a.day_type,
             "window_days": a.days, "source": "DOSM OD ridership via ClickHouse", **stats}

@@ -75,23 +75,8 @@ def _cyclic(val: float, period: float) -> tuple[float, float]:
 
 
 def _auto_time() -> dict:
-    now = datetime.now(timezone.utc)
-    hour = now.hour
-    dow = now.weekday()  # 0=Mon
-    hs, hc = _cyclic(hour, 24)
-    ds, dc = _cyclic(dow, 7)
-    peak = int(dow < 5 and ((7 <= hour <= 9) or (17 <= hour <= 20)))
-    return {
-        'hour_sin': hs,
-        'hour_cos': hc,
-        'dow_sin': ds,
-        'dow_cos': dc,
-        'minute_of_day': hour * 60 + now.minute,
-        'is_peak': peak,
-        'is_weekend': int(dow >= 5),
-        '_hour': hour,
-        '_dow': dow,
-    }
+    """The current moment in Kuala Lumpur time: peak hours and day-of-week are local, not UTC."""
+    return time_ctx_for(datetime.now(timezone.utc))
 
 
 def time_ctx_for(when: datetime) -> dict:

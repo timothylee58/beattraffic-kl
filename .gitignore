@@ -28,3 +28,7 @@ firebase/functions/lib
 ml/models/*.onnx
 ml/models/*.lgb
 ml/models/*.csv
+
+# Python bytecode
+__pycache__/
+*.pyc

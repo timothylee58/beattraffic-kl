@@ -7,3 +7,5 @@ scikit-learn
 pandas
 onnxmltools
 onnx
+pyarrow  # parquet engine for scripts/load_ridership_clickhouse.py and scripts/map_dosm_names.py
+chdb  # embedded ClickHouse engine for tests/test_clickhouse_sql.py

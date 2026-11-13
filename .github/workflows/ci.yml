@@ -10,6 +10,15 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      # Real Postgres + pgvector for tests/test_postgres_integration.py (the tests recreate the transit tables).
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     defaults:
       run:
         working-directory: orchestration-api
@@ -21,7 +30,10 @@ jobs:
           cache: pip
           cache-dependency-path: orchestration-api/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
-      - run: python -m pytest tests -q
+      - name: Tests (incl. live Postgres + embedded ClickHouse engine)
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: python -m pytest tests -q
       # Train the (synthetic-data) LightGBM crowd model so the eval exercises the real ONNX path, not a stub.
       - name: Train crowd model
         working-directory: .
