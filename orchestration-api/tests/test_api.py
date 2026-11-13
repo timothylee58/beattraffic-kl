@@ -16,8 +16,17 @@ def test_replan_end_to_end():
 
 
 def test_client_cannot_choose_its_own_rate_limit_identity():
+    from app.api.routes.transit import _gateway
+
     r = client.post("/transit/replan", json={**BODY, "client_id": "someone-else"})
     assert r.status_code == 200
+    clients = {rec["client"] for rec in _gateway().audit.for_trace(r.json()["trace_id"])}
+    assert clients and all(c.startswith("web:") for c in clients)
+
+
+def test_typo_in_structured_disruption_is_422():
+    r = client.post("/transit/replan", json={**BODY, "disruption": {"closed_line": ["LRT_KELANA_JAYA"]}})
+    assert r.status_code == 422
 
 
 def test_bad_input_is_422_not_500():

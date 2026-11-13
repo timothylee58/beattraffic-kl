@@ -62,13 +62,20 @@ def reachable(origin: str, dest: str, spec: dict) -> bool:
     return False
 
 
-def check_legs(route: dict, spec: dict) -> list[str]:
+def check_legs(route: dict, spec: dict, origin: str | None = None, dest: str | None = None) -> list[str]:
     """Violations for one presented route (answer['routes'][i]) against raw seed data and the closure spec."""
     bad: list[str] = []
     closed = closed_edges(spec)
     legs = route["legs"]
+    if not legs:
+        return ["route has no legs"]
     for i, l in enumerate(legs):
         stops = l["stops"]
+        if not stops:
+            bad.append(f"leg {i}: no stops")
+            continue
+        if i > 0 and legs[i - 1]["stops"] and legs[i - 1]["stops"][-1] != stops[0]:
+            bad.append(f"leg {i}: not continuous with leg {i - 1}")
         if l["mode"] == "rail":
             ln = l["line_code"]
             for a, b in zip(stops, stops[1:]):
@@ -76,15 +83,24 @@ def check_legs(route: dict, spec: dict) -> list[str]:
                     bad.append(f"leg {i}: {ln} has no edge {a}->{b}")
                 if (a, b, ln) in closed:
                     bad.append(f"leg {i}: uses closed edge {a}->{b} on {ln}")
+            if i > 0 and legs[i - 1]["mode"] == "rail" and legs[i - 1]["line_code"] != ln:
+                bad.append(f"leg {i}: unpriced line change {legs[i - 1]['line_code']} -> {ln}")
         elif l["mode"] == "walk":
             if (stops[0], stops[-1], "WALK") not in EDGES:
                 bad.append(f"leg {i}: no walking link {stops}")
         elif l["mode"] == "transfer":
-            prev_ln, next_ln = legs[i - 1].get("line_code"), legs[i + 1].get("line_code") if i + 1 < len(legs) else None
+            prev_ln = legs[i - 1].get("line_code") if i > 0 else None
+            next_ln = legs[i + 1].get("line_code") if i + 1 < len(legs) else None
             if not (prev_ln in SERVES.get(stops[0], ()) and next_ln in SERVES.get(stops[0], ())):
                 bad.append(f"leg {i}: transfer at {stops[0]} not served by both lines")
+        else:
+            bad.append(f"leg {i}: unknown mode {l['mode']!r}")
         if any(s in spec.get("closed_stations", []) for s in stops):
             bad.append(f"leg {i}: visits closed station")
+    if origin and legs[0]["stops"] and legs[0]["stops"][0] != origin:
+        bad.append(f"starts at {legs[0]['stops'][0]}, expected {origin}")
+    if dest and legs[-1]["stops"] and legs[-1]["stops"][-1] != dest:
+        bad.append(f"ends at {legs[-1]['stops'][-1]}, expected {dest}")
     return bad
 
 
@@ -100,3 +116,8 @@ def closure_args_from_audit(audit, trace_id: str) -> dict | None:
             if a.get("closed_lines") or a.get("closed_stations") or a.get("closed_segments"):
                 return {k: a.get(k, []) for k in ("closed_lines", "closed_stations", "closed_segments")}
     return {"closed_lines": [], "closed_stations": [], "closed_segments": []}
+
+
+def denied_calls(audit, trace_id: str) -> list[dict]:
+    """Calls the gateway refused (not allowlisted, rate limited, invalid args) during this trace."""
+    return [r for r in audit.for_trace(trace_id) if r.get("status") in ("denied", "rate_limited", "invalid_args")]

@@ -15,6 +15,11 @@ from app.transit.build_graph import Graph, _norm
 
 _CLOSED_AFTER = re.compile(r"^\W{0,3}(?:station\W+)?(?:is\W+|are\W+|has\W+been\W+|will\W+be\W+|temporarily\W+)*closed")
 _CLOSED_BEFORE = re.compile(r"(?:closure\W+of|bypass(?:ing)?|skip(?:ping)?|not\W+stop(?:ping)?\W+at|will\W+not\W+stop\W+at)\W*$")
+_CLOSE_CUE = re.compile(r"clos|not\s+stop|bypass|skip|shut")
+_RESOLVED = re.compile(
+    r"\b(resum\w*|restor\w*|re-?open\w*|back\s+to\s+normal|normal\s+(?:service|operations?)|cleared|lifted|no\s+longer|"
+    r"no\s+disruptions?|not\s+(?:currently\s+|been\s+)?(?:disrupted|suspended|closed|affected))\b"
+)
 _LINE_DOWN = re.compile(r"suspend|not\s+operat|not\s+running|disrupt|breakdown|halted|no\s+service|out\s+of\s+service")
 _LINE_ALIASES = {
     "LRT_KELANA_JAYA": ["kelana jaya line", "lrt kelana jaya"],
@@ -74,6 +79,9 @@ def parse_notice(graph: Graph, title: str, body: str) -> Parsed:
         if len(hits) == 2 and " and " in text[hits[0][1]:hits[1][0]]:
             sent_start = max(text.rfind(".", 0, m.start()), 0)
             sent_end = text.find(".", m.end())
+            sentence = text[sent_start: sent_end if sent_end > 0 else len(text)]
+            if not (_LINE_DOWN.search(sentence) or _CLOSE_CUE.search(sentence)) or _RESOLVED.search(sentence):
+                continue  # 'open between A and B' / 'resumed between A and B' is not an outage
             in_sentence = [c for s, e, c in line_spans if sent_start <= s < (sent_end if sent_end > 0 else len(text))]
             seg = [hits[0][2], hits[1][2]] + ([in_sentence[0]] if len(set(in_sentence)) == 1 else [])
             res.closed_segments.append(seg)
@@ -86,6 +94,9 @@ def parse_notice(graph: Graph, title: str, body: str) -> Parsed:
             continue
         after = text[sp[1]:sp[1] + 45]
         before = text[max(0, sp[0] - 30):sp[0]]
+        s0, s1 = text.rfind(".", 0, sp[0]) + 1, text.find(".", sp[1])
+        if _RESOLVED.search(text[s0: s1 if s1 > 0 else len(text)]):
+            continue
         if _CLOSED_AFTER.match(after) or _CLOSED_BEFORE.search(before) or re.match(r"^\W{0,3}station\W+(?:is\W+)?closed", after):
             if sp[2] not in res.closed_stations:
                 res.closed_stations.append(sp[2])
@@ -94,7 +105,7 @@ def parse_notice(graph: Graph, title: str, body: str) -> Parsed:
         a = text.rfind(".", 0, s) + 1
         b = text.find(".", e)
         sentence = text[a: b if b > 0 else len(text)]
-        if _LINE_DOWN.search(sentence) and "between" not in sentence and code not in res.closed_lines:
+        if _LINE_DOWN.search(sentence) and not _RESOLVED.search(sentence) and "between" not in sentence and code not in res.closed_lines:
             res.closed_lines.append(code)
 
     res.closed_segments = [list(t) for t in dict.fromkeys(tuple(x) for x in res.closed_segments)]

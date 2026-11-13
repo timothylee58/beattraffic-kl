@@ -16,8 +16,8 @@ class PlanRouteArgs(BaseModel):
     closed_lines: list[str] = Field(default_factory=list, max_length=8)
     closed_stations: list[str] = Field(default_factory=list, max_length=16)
     closed_segments: list[list[str]] = Field(default_factory=list, max_length=16)
-    station_penalty: dict[str, float] = Field(default_factory=dict)
-    line_penalty: dict[str, float] = Field(default_factory=dict)
+    station_penalty: dict[str, float] = Field(default_factory=dict, max_length=64)
+    line_penalty: dict[str, float] = Field(default_factory=dict, max_length=16)
     k: int = Field(default=3, ge=1, le=5)
     arrive_by: datetime | None = None
 

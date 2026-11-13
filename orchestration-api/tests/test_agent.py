@@ -107,12 +107,20 @@ def test_crowd_aware_choice_avoids_jammed_transfer_even_if_slower(gw):
     assert "less crowded" in steered["reason"] or "outweighs" in steered["reason"]
 
 
-def test_loop_cap_is_hard_and_flagged(gw, graph):
-    obs = {s: {"tap_t15": 0.95} for s in graph.stations if s not in ("bangsar", "klcc")}
-    a = ask(gw, observed_crowd=obs, max_iterations=3)
-    assert a["iterations"] <= 3
-    a1 = ask(gw, observed_crowd=obs, max_iterations=1)
-    assert a1["iterations"] == 1
+HUBS = ["kl_sentral", "pasar_seni", "masjid_jamek", "merdeka", "plaza_rakyat", "bukit_bintang", "tun_razak_exchange",
+        "conlay", "persiaran_klcc", "hang_tuah", "titiwangsa", "ampang_park"]  # every transfer a Bangsar->KLCC detour can use
+HOT = {s: {"tap_t15": 0.95} for s in HUBS}
+
+
+def test_loop_cap_is_hard_and_flagged(gw):
+    seg = {"closed_segments": [["pasar_seni", "masjid_jamek", "LRT_KELANA_JAYA"]]}  # every detour now crosses a hub
+    a = ask(gw, disruption=seg, observed_crowd=HOT, max_iterations=3)
+    assert a["crowd"]["available"], "the crowd model must actually run for this test to mean anything"
+    assert 2 <= a["iterations"] <= 3  # re-planned at least once, never beyond the cap
+    a1 = ask(gw, disruption=seg, observed_crowd=HOT, max_iterations=1)
+    assert a1["crowd"]["available"] and a1["iterations"] == 1
+    # crowded hubs everywhere and only one iteration allowed: the agent wanted to re-plan and could not
+    assert a1["loop_cap_hit"] is True
 
 
 def test_tool_call_budget_is_enforced(gw):
@@ -136,3 +144,30 @@ def test_reason_never_claims_less_crowded_when_risk_is_not_lower():
     assert "less crowded" not in text and "similar" in text
     r2 = {**r2, "crowd_level": "High", "crowd_p_high": 0.9}
     assert "less crowded" in _reason([{}, {}], [r1, r2], {}, True)
+
+
+def test_structured_disruption_typo_is_rejected_not_treated_as_normal_service(gw):
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        run_agent(gw, {"origin": "pasar_seni", "destination": "klcc", "arrive_by": ARR, "disruption": {"closed_line": ["LRT_KELANA_JAYA"]}})
+    with pytest.raises(ValidationError):
+        run_agent(gw, {"origin": "pasar_seni", "destination": "klcc", "arrive_by": ARR, "disruption": {"closed_stations": [5]}})
+
+
+def test_unknown_station_in_structured_disruption_is_a_clean_error(gw):
+    a = ask(gw, disruption={"closed_stations": ["Narnia"]})
+    assert a["status"] == "invalid_disruption" and a["routes"] == []
+
+
+def test_failed_replan_keeps_the_routes_already_found(gw):
+    # 2 calls = first plan + first forecast; the re-plan then hits the tool-call budget.
+    a = ask(gw, disruption={"closed_segments": [["pasar_seni", "masjid_jamek", "LRT_KELANA_JAYA"]]}, observed_crowd=HOT, max_tool_calls=2)
+    assert a["crowd"]["available"] and a["status"] == "ok" and a["routes"]
+    assert any("Re-planning failed" in w for w in a["warnings"])
+
+
+def test_answer_routes_match_requested_endpoints(gw):
+    a = ask(gw, disruption={"closed_segments": [["pasar_seni", "masjid_jamek", "LRT_KELANA_JAYA"]]})
+    assert all(r["path"][0]["id"] == "bangsar" and r["path"][-1]["id"] == "klcc" for r in a["routes"])

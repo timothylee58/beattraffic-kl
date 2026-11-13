@@ -84,7 +84,8 @@ class PgVectorNoticeStore:
                     """INSERT INTO service_notices (id, title, body, published_at, lines, synthetic, embedding)
                        VALUES (%s,%s,%s,%s,%s,%s,%s::vector)
                        ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, body=EXCLUDED.body,
-                         lines=EXCLUDED.lines, embedding=EXCLUDED.embedding""",
+                         published_at=EXCLUDED.published_at, lines=EXCLUDED.lines,
+                         synthetic=EXCLUDED.synthetic, embedding=EXCLUDED.embedding""",
                     (n.id, n.title, n.body, n.published_at, list(n.lines), n.synthetic,
                      self._lit(self.embedder.embed(f"{n.title}. {n.body}"))),
                 )

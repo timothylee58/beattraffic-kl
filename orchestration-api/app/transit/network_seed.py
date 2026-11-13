@@ -111,7 +111,7 @@ LINE_STATIONS: dict[str, list[str]] = {
         "bukit_nanas", "medan_tuanku", "chow_kit", "titiwangsa",
     ],
     "MRT_KAJANG": [
-        "sungai_buloh", "bandar_utama", "ttdi", "semantan", "muzium_negara", "pasar_seni", "merdeka",
+        "sungai_buloh", "kwasa_damansara", "bandar_utama", "ttdi", "semantan", "muzium_negara", "pasar_seni", "merdeka",
         "bukit_bintang", "tun_razak_exchange", "cochrane", "maluri", "taman_connaught",
         "bandar_tun_hussein_onn", "stadium_kajang", "kajang",
     ],

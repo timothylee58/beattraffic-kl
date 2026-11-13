@@ -51,7 +51,7 @@ def _get_session():
     """Load the ONNX runtime session once; raises if onnxruntime not installed."""
     import onnxruntime as ort  # noqa: import-outside-toplevel
 
-    model_path = Path(os.getenv('CROWD_MODEL_PATH', str(_DEFAULT_MODEL)))
+    model_path = Path((os.getenv('CROWD_MODEL_PATH') or str(_DEFAULT_MODEL)))
     if not model_path.exists():
         raise FileNotFoundError(f'ONNX model not found at {model_path}. '
                                 'Run ml/train_crowd_model.py first.')
@@ -59,7 +59,7 @@ def _get_session():
 
 
 def _model_available() -> bool:
-    model_path = Path(os.getenv('CROWD_MODEL_PATH', str(_DEFAULT_MODEL)))
+    model_path = Path((os.getenv('CROWD_MODEL_PATH') or str(_DEFAULT_MODEL)))
     try:
         import onnxruntime  # noqa: F401
         return model_path.exists()
@@ -113,7 +113,8 @@ def time_ctx_for(when: datetime) -> dict:
 
 def predict_rows(rows: list[dict], time_ctx: dict) -> tuple[list[tuple[int, list[float]]], str]:
     """
-    Pure inference helper shared by the HTTP route and the MCP crowd_forecast tool.
+    Pure inference helper used by the MCP crowd_forecast tool (app/transit/forecast.py). The HTTP
+    route above still carries its own copy of this logic; keep the two in sync.
     `rows` are dicts keyed by FEATURE_COLS. Returns ([(level, [p_low, p_mod, p_high])], model_name).
     """
     if _model_available():

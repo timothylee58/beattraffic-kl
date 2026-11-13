@@ -36,6 +36,8 @@ def run(ctx: ToolContext, a: CrowdForecastArgs) -> dict:
         sid = ctx.graph.resolve_station(k)
         if sid is None:
             bad.append(k)
+        elif sid in obs:
+            return {"ok": False, "error": f"duplicate observed entries for station {sid}"}
         else:
             obs[sid] = v.model_dump(exclude_none=True)
     if bad:

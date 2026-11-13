@@ -28,7 +28,7 @@ class Route:
 
     def to_dict(self) -> dict:
         return {
-            "legs": self.legs,
+            "legs": [{**l, "stops": list(l["stops"])} for l in self.legs],  # copies: results are cached and shared
             "total_minutes": self.total_minutes,
             "cost": round(self.cost, 1),
             "transfers": self.transfers,
@@ -196,26 +196,40 @@ def _validate_endpoints(graph: Graph, origin: str, dest: str, d: Disruption) -> 
         raise NoRoute("origin and destination are the same station")
 
 
-def verify_route(graph: Graph, route: Route | dict, disruption: Disruption | None = None) -> list[str]:
+def verify_route(graph: Graph, route: Route | dict, disruption: Disruption | None = None,
+                 origin: str | None = None, dest: str | None = None) -> list[str]:
     """
     Independent of the router: checks every leg against the graph's edge index.
+    Checks topology, closures, continuity, that every line change is an explicit priced transfer,
+    that minutes match the graph's edge weights, and (when given) the requested endpoints.
     Returns violations; empty list means the route is valid.
     """
     legs = route["legs"] if isinstance(route, dict) else route.legs
+    total = route.get("total_minutes") if isinstance(route, dict) else route.total_minutes
     d = disruption or Disruption()
     w = Weights(graph, d)
     bad: list[str] = []
     if not legs:
         return ["route has no legs"]
+
+    def close(a: float, b: float) -> bool:
+        return abs(float(a) - float(b)) <= 0.15  # leg minutes are rounded to 0.1 while accumulating
+
     for i, l in enumerate(legs):
-        mode, stops = l.get("mode"), l.get("stops", [])
-        for sid in stops:
-            if sid not in graph.stations:
-                bad.append(f"leg {i}: unknown station {sid}")
-            elif not w.station_open(sid):
-                bad.append(f"leg {i}: uses closed station {sid}")
-        if bad and any(m.startswith(f"leg {i}: unknown") for m in bad):
+        mode, stops = l.get("mode"), l.get("stops") or []
+        if not stops:
+            bad.append(f"leg {i}: no stops")
             continue
+        unknown = [sid for sid in stops if sid not in graph.stations]
+        for sid in unknown:
+            bad.append(f"leg {i}: unknown station {sid}")
+        if unknown:
+            continue
+        for sid in stops:
+            if not w.station_open(sid):
+                bad.append(f"leg {i}: uses closed station {sid}")
+        if l.get("from") != stops[0] or l.get("to") != stops[-1]:
+            bad.append(f"leg {i}: endpoints do not match stops")
         if mode == "rail":
             line = l.get("line")
             if line not in graph.lines:
@@ -223,29 +237,53 @@ def verify_route(graph: Graph, route: Route | dict, disruption: Disruption | Non
                 continue
             if not w.line_open(line):
                 bad.append(f"leg {i}: line {line} is closed")
-            if stops[0] != l.get("from") or stops[-1] != l.get("to"):
-                bad.append(f"leg {i}: endpoints do not match stops")
+            ride = 0.0
             for a, b in zip(stops, stops[1:]):
-                if not graph.has_edge(a, b, line):
+                e = graph.edge_index.get((a, b, line))
+                if e is None:
                     bad.append(f"leg {i}: no {line} edge {a}->{b}")
-                elif not w.edge_open(a, b, line):
+                    continue
+                ride += e.minutes
+                if not w.edge_open(a, b, line):
                     bad.append(f"leg {i}: {line} segment {a}-{b} is closed")
+            if "minutes" in l and not close(l["minutes"], ride):
+                bad.append(f"leg {i}: ride minutes {l['minutes']} != graph {round(ride, 1)}")
+            if "wait_minutes" in l and not close(l["wait_minutes"], graph.lines[line]["headway_min"] / 2):
+                bad.append(f"leg {i}: wait {l['wait_minutes']} != half headway")
         elif mode == "walk":
-            a, b = stops[0], stops[-1]
-            if len(stops) != 2 or not graph.has_edge(a, b, WALK):
-                bad.append(f"leg {i}: no walking link {a}->{b}")
+            e = graph.edge_index.get((stops[0], stops[-1], WALK))
+            if len(stops) != 2 or e is None:
+                bad.append(f"leg {i}: no walking link {stops[0]}->{stops[-1]}")
+            elif "minutes" in l and not close(l["minutes"], e.minutes):
+                bad.append(f"leg {i}: walk minutes {l['minutes']} != graph {e.minutes}")
         elif mode == "transfer":
             sid = stops[0]
             prev_l = legs[i - 1] if i > 0 else None
             next_l = legs[i + 1] if i + 1 < len(legs) else None
-            if not prev_l or not next_l or prev_l["mode"] != "rail" or next_l["mode"] != "rail":
+            if not prev_l or not next_l or prev_l.get("mode") != "rail" or next_l.get("mode") != "rail":
                 bad.append(f"leg {i}: transfer must sit between two rail legs")
-            elif sid in graph.stations and not (
-                prev_l["line"] in graph.stations[sid].lines and next_l["line"] in graph.stations[sid].lines
-            ):
-                bad.append(f"leg {i}: {sid} is not served by both lines")
+            else:
+                if not (prev_l["line"] in graph.stations[sid].lines and next_l["line"] in graph.stations[sid].lines):
+                    bad.append(f"leg {i}: {sid} is not served by both lines")
+                if prev_l["line"] == next_l["line"]:
+                    bad.append(f"leg {i}: transfer between the same line")
+            if "minutes" in l and not close(l["minutes"], graph.stations[sid].transfer_min):
+                bad.append(f"leg {i}: transfer minutes {l['minutes']} != graph {graph.stations[sid].transfer_min}")
         else:
             bad.append(f"leg {i}: unknown mode {mode}")
-        if i > 0 and legs[i - 1].get("to") != l.get("from"):
-            bad.append(f"leg {i}: does not start where leg {i - 1} ends")
+        if i > 0:
+            prev = legs[i - 1]
+            if prev.get("to") != l.get("from"):
+                bad.append(f"leg {i}: does not start where leg {i - 1} ends")
+            # An unpriced line change: two rail legs back to back on different lines.
+            if mode == "rail" and prev.get("mode") == "rail" and prev.get("line") != l.get("line"):
+                bad.append(f"leg {i}: switches {prev.get('line')} -> {l.get('line')} without a transfer leg")
+    if origin is not None and legs[0].get("from") != origin:
+        bad.append(f"route starts at {legs[0].get('from')}, expected {origin}")
+    if dest is not None and legs[-1].get("to") != dest:
+        bad.append(f"route ends at {legs[-1].get('to')}, expected {dest}")
+    if total is not None and all("minutes" in l for l in legs):
+        s_ = sum(l["minutes"] + l.get("wait_minutes", 0.0) for l in legs)
+        if not close(total, s_):
+            bad.append(f"total_minutes {total} != sum of legs {round(s_, 1)}")
     return bad

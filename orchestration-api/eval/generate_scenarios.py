@@ -21,9 +21,10 @@ rows: list[dict] = []
 
 def add(cat=None, o=None, d=None, *, status=None, q=None, notice=None, structured=None, source=None, observed=None, event=0,
         arrive=MON, include=(), exclude=(), closed=None):
+    when = "9am" if arrive == MON else "8pm"
     rows.append({
         "id": f"S{len(rows) + 1:02d}", "category": cat, "synthetic": True, "origin": o, "destination": d,
-        "arrive_by": arrive, "question": q if q is not None else Q_PLAIN.format(d=d.replace("_", " ")),
+        "arrive_by": arrive, "question": q if q is not None else Q_PLAIN.format(d=d.replace("_", " ")).replace("9am", when),
         "notice_text": notice, "disruption": structured, "observed_crowd": observed or {}, "event_within_2km": event,
         "expect": {"status": status, "source": source, "tools_include": ["plan_route", *include],
                    "tools_exclude": list(exclude), "closed": closed},

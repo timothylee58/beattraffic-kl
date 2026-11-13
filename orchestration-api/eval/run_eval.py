@@ -6,7 +6,7 @@ Scenario eval. Exit code is non-zero if a hard gate fails, so CI can block on it
   python -m eval.run_eval --out eval/results.json
 
 Hard gates : leg validity 100%, closures respected 100%, status matches BFS reachability 100%,
-             tool choice >= 95%, no unexpected tool outside the allowlist.
+             tool choice >= 95%, zero gateway refusals (denied / rate-limited / invalid-args calls).
 Reported   : crowd-aware vs fastest-only, tool calls, latency p50/p95 (cold vs warm cache), tokens.
 """
 from __future__ import annotations
@@ -103,18 +103,19 @@ def main() -> int:
         tool_ok = all(t in used for t in exp["tools_include"] if not (t == "plan_route" and False)) and not any(t in used for t in exp["tools_exclude"])
         if ans["status"] == "ok" and "crowd_forecast" not in used:
             tool_ok = False
-        if any(t not in ALLOWED_TOOLS for t in used):
-            fails.append("tool outside allowlist")
+        denied = tc.denied_calls(gw.audit, ans["trace_id"])
+        if denied or any(t not in ALLOWED_TOOLS for t in used):
+            fails.append(f"gateway refused {len(denied)} call(s): {[d['tool'] + ':' + d['status'] for d in denied]}")
         if not tool_ok:
             fails.append(f"tool choice wrong: used {sorted(set(used))}")
 
-        leg_bad = [b for r in ans["routes"] for b in tc.check_legs(r, spec)]
+        leg_bad = [b for r in ans["routes"] for b in tc.check_legs(r, spec, s["origin"], s["destination"])]
         n_legs = sum(len(r["legs"]) for r in ans["routes"])
         closure_bad = [b for b in leg_bad if "closed" in b]
 
         row = {"id": s["id"], "category": s["category"], "status": ans["status"], "legs": n_legs, "leg_violations": leg_bad,
                "closure_violations": closure_bad, "tool_ok": tool_ok, "tools": used, "iterations": ans["iterations"],
-               "loop_cap_hit": ans["loop_cap_hit"], "rejected": ans["rejected_count"], "failures": fails,
+               "loop_cap_hit": ans["loop_cap_hit"], "rejected": ans["rejected_count"], "denied": len(denied), "failures": fails,
                "tokens": ans["tokens_used"]}
         if ans["routes"]:
             top = ans["routes"][0]
@@ -135,7 +136,8 @@ def main() -> int:
     ok = [r for r in results if r["status"] == "ok"]
     legs = sum(r["legs"] for r in results)
     bad_legs = sum(len(r["leg_violations"]) for r in results)
-    crowd_rows = [r for r in results if r["category"] in ("peak_hour", "event_crowd") and "top_p_high" in r]
+    crowd_rows = [r for r in results if r["category"] in ("peak_hour", "event_crowd")
+                  and r.get("top_p_high") is not None and r.get("fastest_p_high") is not None]  # absent when forecasting failed
     gained = [r for r in crowd_rows if r["top_p_high"] < r["fastest_p_high"] - 1e-9]
     changed = [r for r in crowd_rows if r["top_minutes"] > r["fastest_minutes"] + 1e-9]
     summary = {
@@ -156,6 +158,7 @@ def main() -> int:
         "tool_calls_per_answer": {"median": statistics.median(tool_calls), "max": max(tool_calls)},
         "loop_cap_hits": sum(r["loop_cap_hit"] for r in results),
         "verify_rejections": sum(r["rejected"] for r in results),
+        "gateway_refusals": sum(r["denied"] for r in results),
         "tokens_per_answer_median": statistics.median(r["tokens"] for r in results),
         "latency_ms": {"cold": {"p50": _pct(cold_ms, .5), "p95": _pct(cold_ms, .95)}, "warm_cached": {"p50": _pct(warm_ms, .5), "p95": _pct(warm_ms, .95)}},
         "by_category": {c: {"n": sum(1 for r in results if r["category"] == c), "ok": sum(1 for r in results if r["category"] == c and not r["failures"])}
@@ -169,7 +172,8 @@ def main() -> int:
         Path(args.out).write_text(json.dumps({"summary": summary, "results": results}, indent=2))
 
     gates = [summary["leg_validity_pct"] == 100.0, summary["closures_respected_pct"] == 100.0,
-             summary["status_correct_pct"] == 100.0, summary["tool_choice_pct"] >= 95.0]
+             summary["status_correct_pct"] == 100.0, summary["tool_choice_pct"] >= 95.0,
+             summary["gateway_refusals"] == 0]
     return 0 if all(gates) else 1
 
 

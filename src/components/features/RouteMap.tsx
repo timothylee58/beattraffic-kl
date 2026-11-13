@@ -28,10 +28,18 @@ export function RouteMap({ network, closedEdges, routes, selected }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<MapLibreMap | null>(null)
   const [ready, setReady] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!el.current || map.current) return
-    const m = new maplibregl.Map({ container: el.current, style: OSM_STYLE, center: [101.7, 3.14], zoom: 11.2, attributionControl: { compact: true } })
+    let m: MapLibreMap
+    try {
+      m = new maplibregl.Map({ container: el.current, style: OSM_STYLE, center: [101.7, 3.14], zoom: 11.2, attributionControl: { compact: true } })
+    } catch (err) {
+      // Without WebGL the constructor throws; keep the rest of the page (routes as text) working.
+      setMapError(err instanceof Error ? err.message : 'WebGL unavailable')
+      return
+    }
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     m.on('load', () => {
       for (const id of ['network', 'closed', 'alt', 'route', 'stops']) m.addSource(id, { type: 'geojson', data: empty })
@@ -78,10 +86,18 @@ export function RouteMap({ network, closedEdges, routes, selected }: Props) {
     }
   }, [ready, network, closedEdges, routes, selected])
 
+  if (mapError) {
+    return (
+      <div role="status" className="flex h-[320px] items-center justify-center rounded-lg border bg-muted/40 p-6 text-center text-sm text-muted-foreground sm:h-[420px] lg:h-full lg:min-h-[520px]">
+        The map needs WebGL, which is unavailable here. Your routes are listed below.
+      </div>
+    )
+  }
+
   return (
     <div
       ref={el}
-      role="img"
+      role="region"
       aria-label="Map of the KL rail network. Closed segments are red and dashed; the selected route is the thick blue line."
       className="h-[320px] w-full overflow-hidden rounded-lg border sm:h-[420px] lg:h-full lg:min-h-[520px]"
     />

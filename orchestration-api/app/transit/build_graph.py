@@ -160,6 +160,8 @@ def load_from_postgres(dsn: str) -> Graph:
         edges = [Edge(a, b, ln, float(m)) for a, b, ln, m in cur.fetchall()]
         cur.execute("SELECT id, name, lat, lon, transfer_min FROM graph_stations")
         base = cur.fetchall()
+    if not base or not edges:
+        raise ValueError("graph tables are empty: run `python -m scripts.seed_transit`")
     served: dict[str, set[str]] = {r[0]: set() for r in base}
     for e in edges:
         if e.line != "WALK":

@@ -34,3 +34,14 @@ def test_injected_instructions_add_nothing_beyond_graph_entities(graph):
 def test_station_named_like_a_line_is_not_a_closure(graph):
     p = parse_notice(graph, "", "Kelana Jaya and Kajang line trains will not stop at Pasar Seni.")
     assert p.closed_stations == ["pasar_seni"] and not p.closed_lines
+
+
+@pytest.mark.parametrize("text", [
+    "Services have resumed between Pasar Seni and Masjid Jamek.",
+    "The Kelana Jaya Line is open between Pasar Seni and Masjid Jamek after repairs.",
+    "MRT Kajang line is not disrupted.",
+    "Normal service has been restored on the LRT Kelana Jaya Line.",
+    "Masjid Jamek station has reopened after the earlier closure.",
+])
+def test_resolved_or_negated_notices_close_nothing(graph, text):
+    assert parse_notice(graph, "", text).empty

@@ -34,7 +34,7 @@ async def replan(payload: dict, request: Request) -> dict:
         req = AgentRequest(**payload)
     except (ValidationError, TypeError) as exc:
         raise HTTPException(422, str(exc)[:500])
-    gw = _gateway()
+    gw = await run_in_threadpool(_gateway)  # first call may load the graph from Postgres
     if gw.ctx.graph.resolve_station(req.origin) is None or gw.ctx.graph.resolve_station(req.destination) is None:
         raise HTTPException(422, "unknown origin or destination station")
     return await run_in_threadpool(run_agent, gw, req)
@@ -42,7 +42,7 @@ async def replan(payload: dict, request: Request) -> dict:
 
 @router.get("/network")
 async def network() -> dict:
-    g = _gateway().ctx.graph
+    g = (await run_in_threadpool(_gateway)).ctx.graph
     return {
         "version": g.version,
         "approximate": True,

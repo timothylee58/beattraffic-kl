@@ -2,9 +2,24 @@ from __future__ import annotations
 
 import operator
 from datetime import datetime
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+Name = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
+class DisruptionSpec(BaseModel):
+    """Structured closures from the UI toggle. extra=forbid: a typo must be an error, not normal service."""
+
+    model_config = ConfigDict(extra="forbid")
+    closed_lines: list[Name] = Field(default_factory=list, max_length=8)
+    closed_stations: list[Name] = Field(default_factory=list, max_length=16)
+    closed_segments: list[list[Name]] = Field(default_factory=list, max_length=16)
+
+    @property
+    def empty(self) -> bool:
+        return not (self.closed_lines or self.closed_stations or self.closed_segments)
 
 
 class AgentRequest(BaseModel):
@@ -15,7 +30,7 @@ class AgentRequest(BaseModel):
     question: str = Field(default="", max_length=500)
     notice_text: str | None = Field(default=None, max_length=2000)
     # Structured override from the UI's disruption toggle: closed_lines / closed_stations / closed_segments
-    disruption: dict[str, Any] | None = None
+    disruption: DisruptionSpec | None = None
     # Station -> {crowd_t15, tap_t15, ...}: live (or simulated) gate signals fed to the crowd model.
     observed_crowd: dict[str, dict[str, float]] = Field(default_factory=dict)
     weather_code: int = Field(default=0, ge=0, le=3)
@@ -37,6 +52,7 @@ class AgentState(TypedDict, total=False):
     context: dict
     plan_extra: dict
     plan_error: str | None
+    replan_failed: bool
     pool: list[dict]
     forecast_model: str | None
     crowd_available: bool

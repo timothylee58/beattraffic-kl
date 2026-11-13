@@ -123,3 +123,50 @@ def test_sql_rows_cover_graph():
     rows = graph_sql_rows(G)
     assert len(rows["graph_edges"]) == len(G.edges)
     assert len(rows["graph_stations"]) == len(G.stations)
+
+
+def _rail(line, a, b, stops, minutes, wait):
+    return {"mode": "rail", "line": line, "from": a, "to": b, "stops": stops, "minutes": minutes, "wait_minutes": wait}
+
+
+def test_verify_rejects_unpriced_line_change():
+    legs = [_rail("LRT_KELANA_JAYA", "kl_sentral", "pasar_seni", ["kl_sentral", "pasar_seni"], 2.7, 2.0),
+            _rail("MRT_KAJANG", "pasar_seni", "merdeka", ["pasar_seni", "merdeka"], 1.6, 2.0)]
+    assert any("without a transfer leg" in p for p in verify_route(G, {"legs": legs}))
+
+
+def test_verify_does_not_crash_on_empty_stops_and_reports_it():
+    legs = [{"mode": "rail", "line": "MONORAIL", "from": "a", "to": "b", "stops": []}]
+    assert verify_route(G, {"legs": legs}) == ["leg 0: no stops"]
+
+
+def test_verify_checks_endpoints_and_rejects_tampered_minutes():
+    r = plan(G, "kl_sentral", "klcc")
+    assert verify_route(G, r, origin="kl_sentral", dest="klcc") == []
+    assert any("expected pasar_seni" in p for p in verify_route(G, r, origin="kl_sentral", dest="pasar_seni"))
+    forged = r.to_dict()
+    forged["legs"][0]["minutes"] = 1.0
+    assert any("ride minutes" in p for p in verify_route(G, forged))
+    assert r.legs[0]["minutes"] != 1.0, "to_dict must copy legs: results are cached and shared"
+    forged = r.to_dict()
+    forged["total_minutes"] = 3.0
+    assert any("total_minutes" in p for p in verify_route(G, forged))
+
+
+def test_every_route_the_router_produces_passes_the_strict_verifier():
+    import itertools
+    sample = ["bangsar", "klcc", "titiwangsa", "tun_razak_exchange", "hang_tuah", "sri_petaling", "kwasa_damansara", "sungai_buloh"]
+    for o, d in itertools.permutations(sample, 2):
+        for r in k_routes(G, o, d, None, 3):
+            assert verify_route(G, r, origin=o, dest=d) == [], (o, d)
+
+
+def test_kwasa_damansara_is_a_kajang_putrajaya_interchange():
+    assert {"MRT_KAJANG", "MRT_PUTRAJAYA"} <= set(G.stations["kwasa_damansara"].lines)
+    r = plan(G, "sungai_buloh", "kepong_baru")
+    assert r.transfers == 1 and r.lines == ("MRT_KAJANG", "MRT_PUTRAJAYA")
+
+
+def test_transfer_route_really_contains_a_priced_transfer():
+    r = plan(G, "bukit_bintang", "masjid_jamek")
+    assert r.transfers >= 1 and any(l["mode"] == "transfer" and l["minutes"] > 0 for l in r.legs)

@@ -74,6 +74,8 @@ def _depart(route: dict, arrive_by: datetime) -> datetime:
 
 
 def _key_stations(route: dict) -> list[str]:
+    # Leg endpoints only (boarding, transfers, alighting): the model scores platforms where a rider
+    # waits, so stops a train merely passes through are deliberately not scored.
     return list(dict.fromkeys(s for l in route["legs"] for s in (l["from"], l["to"])))
 
 
@@ -92,8 +94,8 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         dis: dict = {}
         source, conf, notice = "none", "none", None
 
-        if q.disruption:
-            dis, source, conf = {k: v for k, v in q.disruption.items() if k in ("closed_lines", "closed_stations", "closed_segments")}, "structured", "high"
+        if q.disruption and not q.disruption.empty:
+            dis, source, conf = q.disruption.model_dump(), "structured", "high"
         elif q.notice_text:
             p = parse_notice(graph, "", q.notice_text)
             dis, source, conf = p.args(), "notice_text", p.confidence
@@ -128,7 +130,7 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
                 r.warnings.append("No service notice affecting your normal route was found; showing normal-service routes.")
         return r.out("parse", {"source": source, "confidence": conf, "disruption": dis},
                      disruption=dis, disruption_source=source, disruption_confidence=conf,
-                     notice=notice, iteration=0, plan_extra={}, pool=[], rejected=[], loop_cap_hit=False, tokens_used=0)
+                     notice=notice, iteration=0, plan_extra={}, pool=[], rejected=[], loop_cap_hit=False, tokens_used=0, replan_failed=False)
 
     def context(state: AgentState) -> dict:
         r = Runner(gw, state)
@@ -159,6 +161,9 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         res = r.call("plan_route", {"origin": q.origin, "destination": q.destination, **state["disruption"],
                                     "station_penalty": state.get("plan_extra", {}), "k": 3,
                                     "arrive_by": q.arrive_by.isoformat()})
+        if (res is None or not res.get("ok")) and state.get("pool"):
+            r.warnings.append("Re-planning failed; showing the routes found before it.")
+            return r.out("plan", {"error": "replan failed, keeping earlier routes"}, status="planned", replan_failed=True, plan_error=None)
         if res is None:
             return r.out("plan", {"error": "tool unavailable"}, status="tool_error", plan_error="route planner unavailable")
         if not res.get("ok"):
@@ -168,7 +173,7 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         for route in res["routes"]:
             pool.setdefault(tuple((l["mode"], l.get("line"), l["from"], l["to"]) for l in route["legs"]), route)
         return r.out("plan", {"routes": len(res["routes"]), "cache_hit": res["cache_hit"], "closed_edges": res["closed_edge_count"]},
-                     pool=list(pool.values()), iteration=state.get("iteration", 0) + 1, status="planned", plan_error=None)
+                     pool=list(pool.values()), iteration=state.get("iteration", 0) + 1, status="planned", plan_error=None, replan_failed=False)
 
     def forecast(state: AgentState) -> dict:
         r = Runner(gw, state)
@@ -219,8 +224,9 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         except InvalidDisruption:
             d = Disruption()
         ok, bad = [], []
+        o_id, d_id = graph.resolve_station(r.req.origin), graph.resolve_station(r.req.destination)
         for p in state["pool"]:
-            problems = verify_route(graph, p, d)
+            problems = verify_route(graph, p, d, origin=o_id, dest=d_id)
             (bad.append({"route": p, "problems": problems}) if problems else ok.append(p))
         if bad:
             metrics.VERIFY_REJECTIONS.inc(len(bad))
@@ -284,12 +290,23 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
 # ── presentation (all numbers are tool outputs or arithmetic on them) ────────
 
 def _describe_disruption(graph, dis: dict, source: str) -> dict:
-    name = lambda s: graph.stations[graph.resolve_station(s)].name  # noqa: E731
+    def name(s: str) -> str:
+        sid = graph.resolve_station(s)
+        return graph.stations[sid].name if sid else str(s)
+
+    def line_name(x: str) -> str:
+        code = graph.resolve_line(x)
+        return graph.lines[code]["name"] if code else str(x)
+
+    def short(x: str) -> str:
+        code = graph.resolve_line(x)
+        return graph.lines[code]["short"] if code else str(x)
+
     return {
         "source": source,
-        "closed_lines": [graph.lines[graph.resolve_line(x)]["name"] for x in dis.get("closed_lines", [])],
+        "closed_lines": [line_name(x) for x in dis.get("closed_lines", [])],
         "closed_stations": [name(x) for x in dis.get("closed_stations", [])],
-        "closed_segments": [f"{name(s[0])} – {name(s[1])}" + (f" ({graph.lines[graph.resolve_line(s[2])]['short']})" if len(s) > 2 else "")
+        "closed_segments": [f"{name(s[0])} – {name(s[1])}" + (f" ({short(s[2])})" if len(s) > 2 else "")
                             for s in dis.get("closed_segments", [])],
     }
 

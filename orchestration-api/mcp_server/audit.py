@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import threading
 import time
 from collections import deque
+
+log = logging.getLogger(__name__)
 
 
 class AuditLog:
@@ -19,10 +22,15 @@ class AuditLog:
     def write(self, **fields) -> dict:
         rec = {"ts": time.time(), **fields}
         with self._lock:
-            self.records.append(rec)
             if self.path:
-                with open(self.path, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(rec, default=str) + "\n")
+                try:
+                    with open(self.path, "a", encoding="utf-8") as fh:
+                        fh.write(json.dumps(rec, default=str) + "\n")
+                except OSError:
+                    # Reads are side-effect free, so a failed audit write is logged loudly, not fatal.
+                    log.exception("audit log write failed (%s)", self.path)
+                    rec["persisted"] = False
+            self.records.append(rec)
         return rec
 
     def for_trace(self, trace_id: str) -> list[dict]:

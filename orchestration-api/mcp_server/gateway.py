@@ -38,8 +38,9 @@ class ToolGateway:
         t0 = time.perf_counter()
         digest = AuditLog.digest(args)
 
-        def fail(kind: str, msg: str) -> ToolError:
-            self.audit.write(client=client_id, tool=tool, args_digest=digest, status=kind, error=msg[:200],
+        def fail(kind: str, msg: str, detail: str | None = None) -> ToolError:
+            # `msg` goes to the caller; `detail` (raw exception text) stays in the audit log only.
+            self.audit.write(client=client_id, tool=tool, args_digest=digest, status=kind, error=(detail or msg)[:300],
                              latency_ms=round((time.perf_counter() - t0) * 1000, 2), trace_id=trace_id)
             return ToolError(kind, msg)
 
@@ -55,7 +56,7 @@ class ToolGateway:
         try:
             result = fn(self.ctx, parsed)
         except Exception as exc:  # tool backends (ClickHouse, model) may be down: report, don't crash the agent
-            raise fail("failed", f"{type(exc).__name__}: {exc}")
+            raise fail("failed", f"{tool} backend error", detail=f"{type(exc).__name__}: {exc}")
         self.audit.write(client=client_id, tool=tool, args_digest=digest, args=args, status="ok",
                          ok=bool(result.get("ok")), cache_hit=result.get("cache_hit"),
                          latency_ms=round((time.perf_counter() - t0) * 1000, 2), trace_id=trace_id)

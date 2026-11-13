@@ -22,8 +22,12 @@ def build_agent(gw: ToolGateway):
     g.add_edge("context", "reweight")
     g.add_edge("reweight", "plan")
     # no_route / invalid disruption / tool outage skip straight to the answer: nothing to forecast or verify.
-    g.add_conditional_edges("plan", lambda s: "forecast" if s.get("status") == "planned" else "answer",
-                            {"forecast": "forecast", "answer": "answer"})
+    def after_plan(s: AgentState) -> str:
+        if s.get("status") != "planned":
+            return "answer"
+        return "verify" if s.get("replan_failed") else "forecast"  # a failed re-plan keeps the pool found so far
+
+    g.add_conditional_edges("plan", after_plan, {"forecast": "forecast", "verify": "verify", "answer": "answer"})
     g.add_edge("forecast", "assess")
     # Loop cap lives in `assess` (iteration <= max_iterations); the edge only follows its decision.
     g.add_conditional_edges("assess", lambda s: s["next"], {"reweight": "reweight", "verify": "verify"})

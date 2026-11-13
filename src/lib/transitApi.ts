@@ -60,7 +60,7 @@ export interface ReplanRequest {
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!TRANSIT_API_URL) throw new Error('VITE_ORCHESTRATION_API_URL is not set')
-  const res = await fetch(`${TRANSIT_API_URL}${path}`, { ...init, headers: { 'Content-Type': 'application/json' } })
+  const res = await fetch(`${TRANSIT_API_URL}${path}`, { ...init, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`)
   return res.json() as Promise<T>
 }

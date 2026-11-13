@@ -23,10 +23,13 @@ const CROWD_STYLE: Record<string, string> = {
   High: 'bg-red-100 text-red-900 border-red-300',
 }
 
-function nextWeekday(): string {
-  const d = new Date()
-  do d.setDate(d.getDate() + 1); while ([0, 6].includes(d.getDay()))
-  return d.toISOString().slice(0, 10)
+// Calendar date of the next weekday in Kuala Lumpur (UTC+8, no DST), independent of the browser's timezone.
+function nextWeekdayKL(): string {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kuala_Lumpur', weekday: 'short' })
+  let t = Date.now()
+  do t += 86_400_000; while (['Sat', 'Sun'].includes(weekday.format(t)))
+  return day.format(t)
 }
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur' })
@@ -92,9 +95,9 @@ export default function DisruptionPage() {
   const [selected, setSelected] = useState(0)
 
   useEffect(() => {
-    Promise.all([fetchNetwork(), fetchNotices()])
-      .then(([n, c]) => { setNetwork(n); setNotices(c.notices) })
-      .catch(e => setLoadError(e.message))
+    // Independent: the notices list is optional and must not stop normal-service planning.
+    fetchNetwork().then(setNetwork).catch(e => setLoadError(e.message))
+    fetchNotices().then(c => setNotices(c.notices)).catch(() => setNotices([]))
   }, [])
 
   const stations = useMemo(() => [...(network?.stations ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [network])
@@ -106,7 +109,7 @@ export default function DisruptionPage() {
       const destName = stations.find(s => s.id === destination)?.name ?? destination
       const body = {
         origin, destination,
-        arrive_by: `${nextWeekday()}T${time}:00+08:00`,
+        arrive_by: `${nextWeekdayKL()}T${time}:00+08:00`,
         question: disruption === AUTO ? question : `fastest way to ${destName}?`,
         ...(disruption !== AUTO && disruption !== NONE ? { notice_text: notices.find(n => n.id === disruption)?.text } : {}),
         ...(eventCrowd ? {
@@ -172,7 +175,8 @@ export default function DisruptionPage() {
                 {disruption === AUTO && (
                   <div className="space-y-1.5">
                     <Label htmlFor="q">Your question</Label>
-                    <textarea id="q" rows={2} maxLength={500} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={question} onChange={e => setQuestion(e.target.value)} />
+                    <textarea id="q" rows={2} maxLength={500} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={question} onChange={e => setQuestion(e.target.value)} aria-describedby="q-help" />
+                    <p id="q-help" className="text-xs text-muted-foreground">Say that a line is down or a station is closed, e.g. “the line is down”, so the agent searches notices.</p>
                   </div>
                 )}
 
@@ -184,7 +188,7 @@ export default function DisruptionPage() {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={busy || !network} className="w-full">
+                <Button type="submit" disabled={busy || !network || (disruption === AUTO && !question.trim())} className="w-full">
                   {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Planning…</> : 'Re-plan my journey'}
                 </Button>
               </form>

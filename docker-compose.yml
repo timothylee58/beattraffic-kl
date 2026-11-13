@@ -41,7 +41,7 @@ services:
     volumes:
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - postgres_data:/var/lib/postgresql/data
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]  # dev default password: never expose on all interfaces
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U beattraffic -d beattraffic"]
       interval: 10s

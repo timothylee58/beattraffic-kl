@@ -67,3 +67,74 @@ def test_search_notices_flags_text_untrusted_and_synthetic(gw):
 def test_crowd_forecast_uses_observed_signals(gw):
     r = gw.call("c", "crowd_forecast", {"stations": ["klcc"], "at": NOW, "observed": {"klcc": {"tap_t15": 0.9}}})
     assert r["stations"]["klcc"]["label"] == "High"
+
+
+def test_backend_exception_text_is_not_returned_to_the_caller(make_gw):
+    def boom(*a, **k):
+        raise RuntimeError("password=hunter2 host=10.0.0.5")
+    gw = make_gw(forecaster=boom)
+    with pytest.raises(ToolError) as e:
+        gw.call("c", "crowd_forecast", {"stations": ["klcc"], "at": NOW}, trace_id="t3")
+    assert "hunter2" not in str(e.value) and e.value.kind == "failed"
+    assert "hunter2" in gw.audit.for_trace("t3")[0]["error"]  # detail kept server-side
+
+
+def test_duplicate_observed_stations_are_rejected(gw):
+    r = gw.call("c", "crowd_forecast", {"stations": ["klcc"], "at": NOW, "observed": {"klcc": {"tap_t15": 0.1}, "KLCC": {"tap_t15": 0.9}}})
+    assert r["ok"] is False and "duplicate" in r["error"]
+
+
+def test_penalty_maps_are_bounded(gw):
+    many = {f"s{i}": 1.0 for i in range(100)}
+    with pytest.raises(ToolError) as e:
+        gw.call("c", "plan_route", {"origin": "klcc", "destination": "kl_sentral", "station_penalty": many})
+    assert e.value.kind == "invalid_args"
+
+
+def test_rate_limiter_memory_is_bounded_and_idle_buckets_pruned():
+    from mcp_server import ratelimit
+    b = ratelimit.TokenBucket(capacity=2, refill_per_sec=1.0)
+    old = ratelimit.MAX_CLIENTS
+    ratelimit.MAX_CLIENTS = 50
+    try:
+        for i in range(500):
+            b.allow(f"ip{i}", now=float(i))
+        assert len(b._state) <= 50
+    finally:
+        ratelimit.MAX_CLIENTS = old
+
+
+def test_audit_write_failure_is_logged_not_fatal(tmp_path):
+    from mcp_server.audit import AuditLog
+    log = AuditLog(path=str(tmp_path / "missing_dir" / "audit.jsonl"))
+    rec = log.write(tool="x", status="ok", trace_id="t")
+    assert rec["persisted"] is False and log.for_trace("t")
+
+
+def test_ridership_zero_rows_returns_zeros_not_nan(monkeypatch):
+    from app.transit.ridership import ClickHouseRidership
+
+    class C:
+        def execute(self, sql, params):
+            assert "%(station)s" in sql and "user" not in params and "DROP" not in sql
+            return [(0, float("nan"), 0)]
+    r = ClickHouseRidership()
+    r._client = C()
+    assert r.daily_stats("KLCC", "outbound", "weekday", 90) == {"n_days": 0, "avg_daily": 0, "max_daily": 0}
+
+
+def test_ridership_refuses_to_run_without_a_read_only_user(monkeypatch):
+    from app.transit.ridership import ClickHouseRidership
+    monkeypatch.setenv("CLICKHOUSE_HOST", "localhost")
+    monkeypatch.delenv("CLICKHOUSE_RO_USER", raising=False)
+    with pytest.raises(RuntimeError, match="RO_USER"):
+        ClickHouseRidership()._conn()
+
+
+def test_eval_gate_can_actually_see_denied_calls(gw):
+    from eval import trace_checks as tc
+
+    with pytest.raises(ToolError):
+        gw.call("c", "send_email", {}, trace_id="t9")
+    assert [d["status"] for d in tc.denied_calls(gw.audit, "t9")] == ["denied"]
+    assert tc.tools_from_audit(gw.audit, "t9") == []  # the old check looked only at 'ok' records and could never fire

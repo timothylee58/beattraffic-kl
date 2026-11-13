@@ -1,9 +1,11 @@
 name: CI
 on:
   push:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
+            'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
+            'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
 
 jobs:
   backend:
