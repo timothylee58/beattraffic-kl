@@ -19,17 +19,6 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
-      # Real ClickHouse server (the image pinned in docker-compose.yml) for tests/test_clickhouse_live.py:
-      # native protocol + a real read-only user. The tests drop and recreate the `beattraffic` database.
-      clickhouse:
-        image: clickhouse/clickhouse-server:24.3-alpine
-        env:
-          CLICKHOUSE_USER: default
-          CLICKHOUSE_PASSWORD: ci-password
-          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-        ports: ['9000:9000']
-        options: >-
-          --health-cmd "wget -qO- http://localhost:8123/ping" --health-interval 5s --health-timeout 5s --health-retries 12
     defaults:
       run:
         working-directory: orchestration-api
@@ -41,6 +30,12 @@ jobs:
           cache: pip
           cache-dependency-path: orchestration-api/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - name: Start ClickHouse (the image pinned in docker-compose.yml)
+        # A step, not a `services:` container, so a failed start prints the server's own logs.
+        working-directory: .
+        env:
+          CH_PASSWORD: ci-password
+        run: .github/scripts/start-clickhouse.sh
       - name: Tests (live Postgres + live ClickHouse + embedded ClickHouse engine)
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
