@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/layout/Navbar'
@@ -24,8 +24,6 @@ import { CommuteLeaderboard } from './components/features/CommuteLeaderboard'
 import AdminDashboard from './pages/AdminDashboard'
 import StationPage from './pages/StationPage'
 import { MapPage } from './pages/MapPage'
-// Code-split: MapLibre is ~800 kB and only needed on this route.
-const DisruptionPage = lazy(() => import('./pages/DisruptionPage'))
 import { ParkingFinder } from './components/features/ParkingFinder'
 import { BellRing, BookmarkPlus, Car, CloudLightning, Cpu, Map, MapPinned, ScanText, Search, Sparkles, Stamp, Ticket, Trophy, Users } from 'lucide-react'
 import { Button } from './components/ui/button'
@@ -178,7 +176,6 @@ export default function App() {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/station/:stationId" element={<StationPage />} />
       <Route path="/map" element={<MapPage />} />
-      <Route path="/disruption" element={<Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading map…</div>}><DisruptionPage /></Suspense>} />
     </Routes>
   )
 }

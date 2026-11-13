@@ -110,6 +110,7 @@ Every KL rail line ships with a dedicated USP tuned for Malaysia-specific commut
 
 ```
 beattraffic-kl/
+├── frontend/                     # Transit re-planner (Next.js 15 + Tailwind + Framer Motion + MapLibre)
 ├── src/                          # Web app (React + Vite)
 │   ├── App.tsx                   # Root — BrowserRouter + Routes
 │   ├── main.tsx                  # Entry point with BlinkProvider
@@ -339,7 +340,6 @@ Without Firebase env vars, Commute AI uses the bundled local hybrid retriever (`
 | `/` | `HomePage` | Public |
 | `/station/:stationId` | `StationPage` | Public |
 | `/admin` | `AdminDashboard` | Authenticated users only |
-| `/disruption` | `DisruptionPage` | Public |
 
 ---
 
@@ -527,6 +527,18 @@ verify    verified=3 rejected=0
 answer    status=ok routes=2
 ```
 
+### Web app (`frontend/`)
+Next.js 15 (App Router), React 19, Tailwind CSS 3, Framer Motion, MapLibre GL, shadcn-style primitives (Radix).
+- **Same-origin proxy.** The browser only talks to `/api/transit/{network,notices,replan}`; route handlers forward to the orchestration API at runtime (`API_URL`). There is no CORS and no backend URL in the browser, the upstream URL is built from a three-entry allowlist (so it cannot be used as an open proxy), request bodies are capped, and upstream error text is never echoed to the browser. The handler passes the visitor's IP in `X-Client-IP`; the API believes it **only** when the direct peer is in `TRUSTED_PROXIES`, so a spoofed header cannot dodge per-user rate limiting. The gate-signal endpoint is deliberately not proxied.
+- **Motion and accessibility.** Framer Motion is used for entrance stagger, a shared-layout selection highlight and a minutes count-up, under `MotionConfig reducedMotion="user"`; screen readers get the final value, not the animating digits. Crowd levels carry an icon and text, never colour alone; the map is a labelled region with a text fallback when WebGL is unavailable; dark mode follows the system setting.
+- **Run:** `cd frontend && cp .env.example .env.local && npm ci && npm run dev` (needs the API on `API_URL`, default `http://localhost:8000`). Checks: `npm run lint && npm run typecheck && npm test && npm run build`, all run in CI. Container: `frontend/Dockerfile` (standalone output, non-root) and the `web` service in `docker-compose.yml`.
+
+### Live gate-signal feed
+The crowd model is driven mostly by the last 15/30 minutes of per-station crowd and tap-in readings. `POST /transit/gate-signals` accepts them from whatever feed you connect: `{"signals": [{"station": "klcc", "crowd": 2, "tap": 0.9, "at": "<tz-aware ISO time, optional>"}]}`, authenticated with `X-Gate-Feed-Token`. It returns 503 until `GATE_FEED_TOKEN` is configured, checks the token before parsing the body, and validates the whole batch before storing any of it (unknown stations, out-of-range values, naive or future timestamps are rejected). `GET /transit/gate-signals/status` reports feed freshness only.
+- **The feed must send normalised readings** (`crowd` 0=Low 1=Moderate 2=High; `tap` 0..1 as the share of that station's usual peak tap-in rate). Calibration is the sender's job: this repo does not guess per-station capacities.
+- The agent asks `crowd_forecast` for live signals on every request. Readings older than 20 minutes are ignored (and the answer says the feed is stale); signals supplied in the request win per station over the feed. `crowd.signal_source` is `live_feed`, `request`, `mixed` or `none`, and the UI shows it.
+- The store is **in-memory and per-process**: run one API worker, or swap in a shared store (e.g. Redis) before scaling out. **No real feed is connected**; choosing and wiring one is a data-source decision outside this repo.
+
 ### Security
 - **Notices are untrusted text.** `app/agent/parse.py` is a gazetteer + cue matcher: it can only emit station ids and line codes that already exist in the graph, and the only effect is which edges are closed. Notice text does influence `plan_route` arguments, but only by populating the closure fields with ids that exist in the graph: it cannot choose a tool, add a tool call, or supply any other argument. Resolved or negated wording ("services resumed", "not disrupted") closes nothing, and a `between A and B` segment needs an outage cue in the same sentence. Covered by tests (including a retrieved notice that says "IGNORE ALL PREVIOUS INSTRUCTIONS…") and by eval scenario S19.
 - **Tools stay read-only** and the allowlist is a code constant. ClickHouse access is parameterised and uses a read-only user with the server-side `readonly=1` setting (`infra/clickhouse/readonly_user.sql`). The `station`/`direction`/`day_type` inputs are validated and mapped to fixed SQL fragments; values go in as query parameters.
@@ -565,28 +577,29 @@ Last run (real LightGBM/ONNX forecaster, in-memory notices, seed graph). `python
 | Latency, warm route cache | p50 17.1 ms, p95 19.6 ms | reported |
 
 **Read these numbers with care.**
-- The crowd-aware result is on *simulated* signals. The model is `v1-synthetic`, trained on synthetic data, and it leans almost entirely on the last 15/30 minutes of crowd and tap-in readings. With no live fare-gate feed it falls back to neutral inputs and calls every station "Moderate" (p_high ≈ 0.01–0.03), so **crowd-aware routing cannot differentiate stations until a real gate feed supplies those signals**. The scenarios inject them; the answer carries a warning when none were supplied.
+- The crowd-aware result is on *simulated* signals. The model is `v1-synthetic`, trained on synthetic data, and it leans almost entirely on the last 15/30 minutes of crowd and tap-in readings. With no live fare-gate feed it falls back to neutral inputs and calls every station "Moderate" (p_high ≈ 0.01–0.03), so **crowd-aware routing cannot differentiate stations until a real gate feed supplies those signals**. The ingestion side now exists (see "Live gate-signal feed"), but no real feed is connected: the scenarios and the UI's event toggle inject simulated signals, and every answer states where its crowd signals came from (`crowd.signal_source`) and warns when there are none.
 - In 3 of 12 crowd scenarios the chosen route was not safer: every alternative also crossed a crowded hub or cost more than the crowd weight (10 minutes of travel time per unit of worst-station p_high) justified.
 - The scenario hubs were placed on the fastest route so there is something to steer around; that is a statement about scenario design, not about real traffic.
 - Latency is dominated by in-process routing on a 66-station graph; it says nothing about Postgres or ClickHouse round-trips, which the eval does not exercise.
 
 ### Known limitations
 - The network is a **curated core subset** (66 stations, 6 lines) with approximate coordinates and distance-derived times (`app/transit/network_seed.py`). `ml/station_line_map.json` has no stop order or coordinates, so it cannot build edges. Replace the seed with the Prasarana GTFS pipeline; `Graph` and the Postgres schema do not change.
-- **Live-server coverage.** The Postgres schema, seeding, graph loading and pgvector search run against a real Postgres 16 + pgvector in CI (`tests/test_postgres_integration.py`, service container). The ClickHouse SQL (`init.sql`, the `ridership_stats` query, the loader) runs on the real ClickHouse engine embedded via `chdb` (`tests/test_clickhouse_sql.py`), checked against an independent pandas oracle. **Not covered:** the ClickHouse native wire protocol, a real read-only user being denied writes, and the full `docker-compose` stack; the eval itself still uses in-memory stand-ins. Notice embeddings are a dependency-free feature-hash (`HashEmbedder`, 256-d), not a semantic model.
+- **Live-server coverage.** In CI: Postgres 16 + pgvector (`tests/test_postgres_integration.py`: schema, seeding, graph loading, pgvector search) and a real ClickHouse 24.3 server, the image pinned in `docker-compose.yml` (`tests/test_clickhouse_live.py`: `init.sql`, the loader through the real driver, `ridership_stats` over the native protocol as the real `ridership_ro` user checked against a pandas oracle, and that user being denied every write, every other table, and any attempt to change its own limits). The embedded-engine tests (`tests/test_clickhouse_sql.py`, `chdb`) run without a server. The same suite was also run against ClickHouse 26.10. The eval itself still uses in-memory stand-ins. Notice embeddings are a dependency-free feature-hash (`HashEmbedder`, 256-d), not a semantic model.
+- **Compose stack.** Verified by hand against the repo's own `docker-compose.yml` (ClickHouse, Postgres, Redis, the API and the web container; not Slack bot, Prometheus, Grafana or OpenTripPlanner): the API starts and goes healthy, the web container reaches it by service name, the fixed-address proxy trust works (a real client IP forwarded by the web container is used for rate limiting, a spoofed `X-Client-IP` sent straight at the published API port is ignored), Postgres seeds and the API switches from the seed graph to it, and `ridership_stats` returns real aggregates from the API container. **Not run literally:** `docker compose build web`/`docker build ./frontend` (the sandbox's TLS-intercepting proxy blocks `npm ci` inside build containers). Its steps were run individually: `npm ci` and `next build` on `node:22-alpine`, then the final stage's own instructions as the non-root `node` user with a healthy healthcheck. Callers that hit the API's published port directly share one rate-limit identity (the Docker bridge gateway); use the web container, or set `TRUSTED_PROXIES` for your own proxy.
 - Notices have no validity window or resolved state: the agent takes the newest notice that affects your normal route. A newer whole-line suspension therefore supersedes an older segment notice.
 - Lagged crowd inputs default to neutral; forecasts use each route's departure time for all of its stations.
 - Crowd risk is scored on the stations where a rider waits (boarding, transfers, alighting), not on stops a train merely passes through; a crowded train between stations is not modelled. A route's score is its worst such station, not an average.
 - Public-holiday flags come from the optional `holidays` package (treated as 0 when it is not installed); the school-holiday calendar is not modelled.
 - `ridership_stats` matches the graph's station display name case-insensitively against the DOSM `origin`/`destination` strings. DOSM spellings may differ for some stations, so those return zero rows until they are listed in `app/transit/dosm_names.json`. Generate a proposal from a real DOSM export with `python scripts/map_dosm_names.py --parquet <file>` (run from `orchestration-api/`); it auto-accepts only exact and clearly-best matches and lists the rest for a human. The shipped map is empty because DOSM data was not reachable when this was built. Inbound lookups filter on `destination`, which is not in the table's sort key, so they scan more than outbound ones.
 - `ridership_stats` needs the dedicated read-only user (`infra/clickhouse/readonly_user.sql`) and the native-protocol port (9000); it refuses to run as a privileged user.
-- The UI is a React/Vite page (`/disruption`) with MapLibre GL and shadcn/ui, matching this repo's stack, not a separate Next.js 15 app. Base tiles come from public OpenStreetMap; use your own tile provider in production.
+- The re-planner UI lives in `frontend/` (Next.js 15). The rest of the legacy React/Vite app in `src/` (ticketing, admin, Blink auth, Firebase RAG, Google Maps) was **not** migrated. Base map tiles come from public OpenStreetMap; use your own tile provider in production.
 
 ### Run it
 ```bash
 # backend (seed graph + in-memory notices need no database)
 cd orchestration-api && pip install -r requirements-dev.txt && uvicorn main:app --reload
-# frontend
-VITE_ORCHESTRATION_API_URL=http://localhost:8000 bun run dev   # → http://localhost:5173/disruption
+# web app (Next.js; proxies /api/transit/* to API_URL, default http://localhost:8000)
+(cd frontend && npm ci && npm run dev)   # → http://localhost:3000
 # full data path (Postgres is bound to localhost only)
 docker-compose up -d postgres clickhouse
 (cd orchestration-api && DATABASE_URL=postgresql://beattraffic:beattraffic_dev@localhost:5432/beattraffic python -m scripts.seed_transit)
@@ -594,6 +607,10 @@ docker-compose up -d postgres clickhouse
 python scripts/load_ridership_clickhouse.py --parquet path/to/od_ridership.parquet   # idempotent; see the script for columns
 # MCP server for other clients
 python -m mcp_server.server
+# read-only ClickHouse user for ridership_stats (compose's ClickHouse allows it; set CLICKHOUSE_RO_USER/_PASSWORD for the API)
+sed 's/CHANGE_ME/<password>/' infra/clickhouse/readonly_user.sql | docker compose exec -T clickhouse clickhouse-client --multiquery
+# whole stack incl. the web container (TRUSTED_PROXIES is preconfigured for the web container's fixed address)
+docker compose up -d web
 ```
 
 ---
@@ -611,7 +628,7 @@ python -m mcp_server.server
 - [ ] **FinOps Billing Exporter** — wire Anthropic / cloud billing APIs to populate `finops_costs` automatically
 - [ ] **BAS.MY Live API** — replace mock bus data with registered BAS.MY API credentials
 - [ ] **Fare Caps** — auto top-up and daily/weekly fare cap logic per Prasarana rules
-- [x] **Transit Graph + Disruption Agent** — graph routing, MCP tools, LangGraph re-planner, 40-scenario eval, `/disruption` map UI
+- [x] **Transit Graph + Disruption Agent** — graph routing, MCP tools, LangGraph re-planner, 40-scenario eval, Next.js map UI (`frontend/`)
 - [ ] **Full GTFS Station Map** — replace `station_line_map.json` stubs with real Prasarana GTFS `stop_id` → `stop_name` mappings
 - [ ] **Safe-Walk Guidance** — incident clusters and late-night exit recommendations
 - [ ] **State-by-State Expansion** — Johor → Penang → Sarawak with localised operator feeds

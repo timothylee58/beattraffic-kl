@@ -1,10 +1,10 @@
 name: CI
 on:
   push:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
+    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'frontend/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
             'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
+    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'frontend/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
             'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
 
 jobs:
@@ -19,6 +19,17 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+      # Real ClickHouse server (the image pinned in docker-compose.yml) for tests/test_clickhouse_live.py:
+      # native protocol + a real read-only user. The tests drop and recreate the `beattraffic` database.
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.3-alpine
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ci-password
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        ports: ['9000:9000']
+        options: >-
+          --health-cmd "wget -qO- http://localhost:8123/ping" --health-interval 5s --health-timeout 5s --health-retries 12
     defaults:
       run:
         working-directory: orchestration-api
@@ -30,9 +41,11 @@ jobs:
           cache: pip
           cache-dependency-path: orchestration-api/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
-      - name: Tests (incl. live Postgres + embedded ClickHouse engine)
+      - name: Tests (live Postgres + live ClickHouse + embedded ClickHouse engine)
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          TEST_CLICKHOUSE_HOST: localhost
+          TEST_CLICKHOUSE_PASSWORD: ci-password
         run: python -m pytest tests -q
       # Train the (synthetic-data) LightGBM crowd model so the eval exercises the real ONNX path, not a stub.
       - name: Train crowd model
@@ -55,3 +68,22 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: bunx vite build
+
+  web:
+    # Next.js 15 app (frontend/): lint, typecheck, unit tests, production build.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

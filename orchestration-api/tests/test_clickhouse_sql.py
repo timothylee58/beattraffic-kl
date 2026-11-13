@@ -5,9 +5,7 @@ independent pandas oracle, injection safety, and the loader's idempotency.
 What it cannot cover: the native wire protocol and a real read-only user being denied writes.
 """
 import datetime as dt
-import importlib.util
 import json
-import pathlib
 
 import pandas as pd
 import pytest
@@ -16,12 +14,7 @@ pytest.importorskip("chdb")
 from chdb import session  # noqa: E402
 from clickhouse_driver.util.escape import escape_params  # noqa: E402
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-
-
-def _statements(path: pathlib.Path) -> list[str]:
-    body = "\n".join(l for l in path.read_text().splitlines() if not l.strip().startswith("--"))
-    return [x.strip() for x in body.split(";") if x.strip()]
+from tests.ch_helpers import ROOT, frame as _frame, load_module, oracle as _oracle, statements as _statements  # noqa: E402
 
 
 class ChdbClient:
@@ -55,34 +48,8 @@ def ch(tmp_path):
     s.cleanup()
 
 
-def _frame(start, days, bump=0, stations=("KLCC", "Pasar Seni")):
-    rows = []
-    for i in range(days):
-        date = start + dt.timedelta(days=i)
-        for o in stations:
-            for d in ("KL Sentral", "Pudu", "KLCC"):
-                if o != d:
-                    rows.append((date, o, d, 100 + 7 * (i % 11) + (400 if date.weekday() < 5 else 0) + bump))
-    return pd.DataFrame(rows, columns=["date", "origin", "destination", "ridership"])
-
-
-def _oracle(df, station, direction, day_type, days, today):
-    col = "origin" if direction == "outbound" else "destination"
-    d = df[(df[col].str.lower() == station.lower()) & (df["date"] > today - dt.timedelta(days=days))]
-    if d.empty:
-        return {"n_days": 0, "avg_daily": 0, "max_daily": 0}
-    if day_type != "all":
-        wk = d["date"].map(lambda x: x.weekday() < 5)
-        d = d[wk] if day_type == "weekday" else d[~wk]
-    g = d.groupby("date")["ridership"].sum()
-    return {"n_days": int(len(g)), "avg_daily": int(round(g.mean())), "max_daily": int(g.max())}
-
-
 def _load(ch, df):
-    spec = importlib.util.spec_from_file_location("loader", ROOT / "scripts" / "load_ridership_clickhouse.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.load_ridership(ch, df, batch=500)
+    return load_module().load_ridership(ch, df, batch=500)
 
 
 def test_every_statement_in_init_sql_applies_and_creates_the_ridership_table(ch):
@@ -144,9 +111,7 @@ def test_loader_is_idempotent_and_replaces_overlapping_ranges(ch):
 
 
 def test_loader_rejects_nonpositive_batch(ch):
-    spec = importlib.util.spec_from_file_location("loader", ROOT / "scripts" / "load_ridership_clickhouse.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    mod = load_module()
     with pytest.raises(ValueError):
         mod.load_ridership(ch, _frame(dt.date(2026, 1, 1), 2), batch=0)
 

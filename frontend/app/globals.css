@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 210 100% 28%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 100% 96%;
+    --secondary-foreground: 210 100% 28%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 10% 40%;
+    --accent: 47 100% 51%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 358 79% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 210 100% 28%;
+    --radius: 0.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 222 47% 11%;
+      --foreground: 210 40% 98%;
+      --card: 222 40% 14%;
+      --card-foreground: 210 40% 98%;
+      --primary: 210 100% 62%;
+      --primary-foreground: 222 47% 11%;
+      --secondary: 222 47% 20%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 222 47% 20%;
+      --muted-foreground: 210 10% 70%;
+      --accent: 47 100% 51%;
+      --accent-foreground: 222 47% 11%;
+      --destructive: 358 79% 60%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 222 47% 22%;
+      --input: 222 47% 22%;
+      --ring: 210 100% 62%;
+    }
+  }
+
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+  :focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }
+}
