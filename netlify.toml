@@ -1,11 +1,9 @@
+# The web app is the Next.js 15 project in frontend/. Netlify's Next.js runtime serves it (server-rendered
+# pages and the /api/transit proxy route handlers run as functions).
 [build]
-  command   = "npm run build"
-  publish   = "dist"
+  base    = "frontend"
+  command = "npm run build"
+  publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
-
-[[redirects]]
-  from   = "/*"
-  to     = "/index.html"
-  status = 200
+  NODE_VERSION = "22"

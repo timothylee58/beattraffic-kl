@@ -37,7 +37,7 @@ class AgentRequest(BaseModel):
     event_within_2km: int = Field(default=0, ge=0, le=1)
     max_iterations: int = Field(default=3, ge=1, le=3)
     max_tool_calls: int = Field(default=12, ge=1, le=20)
-    client_id: str = Field(default="agent", max_length=40)
+    client_id: str = Field(default="agent", max_length=64)  # "web:" + a full IPv6 address fits
 
 
 class AgentState(TypedDict, total=False):
@@ -55,6 +55,7 @@ class AgentState(TypedDict, total=False):
     replan_failed: bool
     pool: list[dict]
     forecast_model: str | None
+    signal_source: str
     crowd_available: bool
     next: str
     verified: list[dict]

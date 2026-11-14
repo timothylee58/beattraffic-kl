@@ -22,6 +22,7 @@ class CrowdForecastArgs(BaseModel):
     weather_code: int = Field(default=0, ge=0, le=3)
     event_within_2km: int = Field(default=0, ge=0, le=1)
     observed: dict[str, ObservedSignal] = Field(default_factory=dict, max_length=40)
+    use_live_signals: bool = False  # also read the live gate feed; explicit `observed` entries win per station
 
 
 def run(ctx: ToolContext, a: CrowdForecastArgs) -> dict:
@@ -42,5 +43,11 @@ def run(ctx: ToolContext, a: CrowdForecastArgs) -> dict:
             obs[sid] = v.model_dump(exclude_none=True)
     if bad:
         return {"ok": False, "error": f"unknown stations in observed: {bad}"}
-    res = ctx.forecaster(ctx.graph, ids, a.at, a.weather_code, a.event_within_2km, obs)
-    return {"ok": True, **res}
+    live: dict[str, dict] = {}
+    feed = None
+    if a.use_live_signals and ctx.gate_signals is not None:
+        feed = ctx.gate_signals.stats()
+        wanted = set(ids)
+        live = {sid: sig for sid, sig in ctx.gate_signals.observed().items() if sid in wanted and sid not in obs}
+    res = ctx.forecaster(ctx.graph, ids, a.at, a.weather_code, a.event_within_2km, {**live, **obs})
+    return {"ok": True, **res, "signals": {"explicit": sorted(obs), "live": sorted(live), "live_feed": feed}}
