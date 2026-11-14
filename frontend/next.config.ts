@@ -10,6 +10,8 @@ const config: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [
+      // The worker script must always be revalidated so a new version is picked up promptly.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, max-age=0" }, { key: "Content-Type", value: "application/javascript; charset=utf-8" }] },
       {
         source: "/(.*)",
         headers: [

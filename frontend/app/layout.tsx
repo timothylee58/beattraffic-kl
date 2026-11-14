@@ -1,6 +1,7 @@
 import { MotionConfig } from "framer-motion";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { ServiceWorker } from "@/components/service-worker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {/* reducedMotion="user": every Framer Motion animation honours the OS "reduce motion" setting. */}
         <MotionConfig reducedMotion="user">{children}</MotionConfig>
+        <ServiceWorker />
       </body>
     </html>
   );
