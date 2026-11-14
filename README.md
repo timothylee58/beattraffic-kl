@@ -62,15 +62,15 @@ Every KL rail line ships with a dedicated USP tuned for Malaysia-specific commut
 
 | Layer | Technology |
 |---|---|
-| Framework | React 19 + Vite 7 |
-| Language | TypeScript 5.9 |
-| Routing | React Router v7 |
+| Framework | Next.js 15 (App Router) + React 19 |
+| Language | TypeScript (strict) |
+| Routing | Next.js file-system routes (`frontend/app`) |
 | Styling | Tailwind CSS 3 + shadcn/ui (Radix UI) |
 | Auth & DB | Blink SDK (`@blinkdotnew/sdk`) |
 | QR Codes | `react-qr-code` (generation), browser BarcodeDetector API (scanning) |
 | Notifications | `react-hot-toast` |
 | Animations | Framer Motion |
-| Maps (planned) | OpenStreetMap + MapLibre GL |
+| Maps | MapLibre GL (re-planner) and Google Maps (`/map`) |
 
 ### Mobile App
 
@@ -110,48 +110,20 @@ Every KL rail line ships with a dedicated USP tuned for Malaysia-specific commut
 
 ```
 beattraffic-kl/
-├── frontend/                     # Transit re-planner (Next.js 15 + Tailwind + Framer Motion + MapLibre)
-├── src/                          # Web app (React + Vite)
-│   ├── App.tsx                   # Root — BrowserRouter + Routes
-│   ├── main.tsx                  # Entry point with BlinkProvider
-│   ├── pages/
-│   │   ├── AdminDashboard.tsx    # /admin (auth-gated, 6 tabs)
-│   │   └── StationPage.tsx       # /station/:stationId
+├── frontend/                     # The web app: Next.js 15 + Tailwind + Framer Motion
+│   ├── app/
+│   │   ├── (site)/               # Landing page, /admin, /station/[stationId], /map (Blink, language, toast providers; always light)
+│   │   ├── replan/               # Disruption re-planner (follows the system light/dark setting)
+│   │   └── api/transit/          # Same-origin proxy to the orchestration API
 │   ├── components/
-│   │   ├── features/
-│   │   │   ├── RoutePlanner.tsx          # Fare calc + delay integration
-│   │   │   ├── TicketList.tsx            # My tickets with QR codes
-│   │   │   ├── TransitIntelligencePanel.tsx
-│   │   │   ├── DelayPredictionPanel.tsx  # Per-line AI delay cards
-│   │   │   ├── AlternativeRoutePanel.tsx # Shown on delay > 5 min
-│   │   │   ├── QRScanner.tsx             # Camera + manual validation
-│   │   │   ├── StationIntelligence.tsx   # Full station detail view
-│   │   │   ├── PersonalCommuteAssistant.tsx
-│   │   │   └── FeatureCard.tsx
-│   │   ├── layout/
-│   │   │   ├── Navbar.tsx        # Sticky nav; Admin link for auth users
-│   │   │   ├── LiveTicker.tsx    # Scrolling real-time line status
-│   │   │   └── Footer.tsx
-│   │   ├── sections/             # Landing page sections
-│   │   │   ├── HeroSection.tsx
-│   │   │   ├── FeaturesSection.tsx
-│   │   │   ├── LineIntelligenceSection.tsx
-│   │   │   ├── ArchitectureSection.tsx
-│   │   │   └── RoadmapSection.tsx
-│   │   └── ui/                   # shadcn/ui component library
-│   ├── lib/
-│   │   ├── transitData.ts        # Domain types + fallback stations
-│   │   ├── predictiveEngine.ts   # Crowd level scoring
-│   │   ├── delayPrediction.ts    # Per-line delay model
-│   │   ├── alternativeRoutes.ts  # Alternative route templates
-│   │   ├── busApi.ts             # BAS.MY + RapidKL bus data
-│   │   ├── stationIntelligence.ts # Facilities, exits, next-train factory
-│   │   ├── dosmApi.ts            # DOSM station CSV ingestion
-│   │   ├── blink.ts              # Blink SDK client
-│   │   └── utils.ts
-│   └── hooks/
-│       ├── useAuth.ts            # Blink auth state
-│       └── use-mobile.tsx
+│   │   ├── pages/                # Page bodies (home, admin dashboard, station, map)
+│   │   ├── features/             # Route planner, tickets, QR scanner, commute AI, heatmap, passport, parking, ...
+│   │   ├── layout/ sections/ motion/ decor/
+│   │   ├── ui/                   # shadcn/ui component library
+│   │   └── replanner.tsx ...     # Re-planner components
+│   ├── lib/                      # Domain logic: transit data, crowd/delay prediction, fares, Blink + Firebase clients, RAG
+│   ├── contexts/ hooks/ i18n/    # Language + agent contexts, auth hook, en/ms/zh translations
+│   └── tests/                    # Vitest
 ├── mobile/                       # React Native (Expo)
 │   ├── app/
 │   │   ├── _layout.tsx
@@ -225,23 +197,22 @@ beattraffic-kl/
 ### Web App
 
 ```bash
-# Install dependencies
-bun install
+cd frontend
+npm ci
 
-# Configure environment
-cp .env.local.example .env.local
-# Fill in VITE_BLINK_PROJECT_ID and VITE_BLINK_PUBLISHABLE_KEY
+# Configure environment (see frontend/.env.example for every variable)
+cp .env.example .env.local
+# Fill in NEXT_PUBLIC_BLINK_PROJECT_ID and NEXT_PUBLIC_BLINK_PUBLISHABLE_KEY
 
-# Start dev server
-bun run dev
-# → http://localhost:5173
+npm run dev
+# → http://localhost:3000   (re-planner at /replan, needs the orchestration API on API_URL)
 ```
 
 **Production build:**
 
 ```bash
-bun run build
-bun run preview
+npm run build
+node .next/standalone/server.js   # needs .next/static copied beside it, as the Dockerfile does
 ```
 
 ### Mobile App
@@ -288,19 +259,22 @@ uvicorn main:app --reload
 
 ## Environment Variables
 
-### Web App (`.env.local`)
+### Web App (`frontend/.env.local`)
 
 | Variable | Description |
 |---|---|
-| `VITE_BLINK_PROJECT_ID` | Blink project ID (auto-detected from `.blink.new` hostname) |
-| `VITE_BLINK_PUBLISHABLE_KEY` | Blink publishable key for auth and database access |
-| `VITE_FIREBASE_API_KEY` | Firebase web API key (optional; enables cloud RAG) |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
-| `VITE_FIREBASE_APP_ID` | Firebase app ID |
-| `VITE_FIREBASE_FUNCTIONS_REGION` | Cloud Functions region (default `asia-southeast1`) |
+| `NEXT_PUBLIC_BLINK_PROJECT_ID` | Blink project ID (auto-detected from `.blink.new` hostname) |
+| `NEXT_PUBLIC_BLINK_PUBLISHABLE_KEY` | Blink publishable key for auth and database access |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase web API key (optional; enables cloud RAG) |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
+| `NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION` | Cloud Functions region (default `asia-southeast1`) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps key for `/map` (restrict it to your site's referrers) |
+
+`NEXT_PUBLIC_*` values are inlined into the browser bundle **at build time** and are visible to every visitor: set them before `npm run build` (or as Docker build args), and never put a secret in one. The full list, including the optional OTP, BAS.MY, ML and events endpoints, is in `frontend/.env.example`.
 
 ### Firebase RAG (Cloud Functions)
 
@@ -310,7 +284,7 @@ uvicorn main:app --reload
 | `ragIngest` | Callable function (admin claim) — seeds `knowledge_chunks` with embeddings |
 | `ragQuery` | Callable function — embeds user question and returns top-k chunks |
 
-Without Firebase env vars, Commute AI uses the bundled local hybrid retriever (`src/lib/rag/localRetriever.ts`).
+Without Firebase env vars, Commute AI uses the bundled local hybrid retriever (`frontend/lib/rag/localRetriever.ts`).
 
 ### Orchestration API (`orchestration-api/.env`)
 
@@ -463,10 +437,10 @@ Deduplication: alerts are fingerprinted by `sha256(severity:region:summary)` and
 ## Linting & Type Checking
 
 ```bash
-bun run lint         # TypeScript + ESLint + Stylelint + CSS variable checks (all)
-bun run lint:types   # TypeScript compiler check only
-bun run lint:js      # ESLint only
-bun run lint:css     # Stylelint only
+cd frontend
+npm run lint         # ESLint (next/core-web-vitals + typescript-eslint)
+npm run typecheck    # next typegen + tsc --noEmit (strict, noUncheckedIndexedAccess)
+npm test             # Vitest
 ```
 
 ---
@@ -528,7 +502,9 @@ answer    status=ok routes=2
 ```
 
 ### Web app (`frontend/`)
-Next.js 15 (App Router), React 19, Tailwind CSS 3, Framer Motion, MapLibre GL, shadcn-style primitives (Radix).
+Next.js 15 (App Router), React 19, Tailwind CSS 3, Framer Motion, MapLibre GL, shadcn-style primitives (Radix). It is the whole web UI: the landing page with ticketing, QR scanning, saved commutes, passport, leaderboard, Commute AI (Firebase RAG with a local fallback), Google Maps and the admin dashboard (Blink auth) live in `app/(site)`, and the disruption re-planner is at `/replan`.
+- **Migrated from Vite.** The old React/Vite app is gone. Environment variables are now `NEXT_PUBLIC_*` (inlined at build time); the Vite PWA service worker was **not** ported (the app is still installable via `app/manifest.ts`, and the GTFS/route caches use the Cache API directly, but there is no offline app-shell precache). The landing page and admin keep their original light-only look; the re-planner follows the system theme.
+- **Blink SDK contract.** `blink.db.<table>.list()` returns an array, `create()` the record, and `delete()` takes an id. The old code destructured `{ data }` and passed `filter`/`{ where }`, so ticket history, QR validation, saved commutes, the leaderboard and delay reports silently fell back to their local/empty paths; `lib/blink.ts` now types the tables and `tests/legacy-data.test.ts` pins the calls.
 - **Same-origin proxy.** The browser only talks to `/api/transit/{network,notices,replan}`; route handlers forward to the orchestration API at runtime (`API_URL`). There is no CORS and no backend URL in the browser, the upstream URL is built from a three-entry allowlist (so it cannot be used as an open proxy), request bodies are capped, and upstream error text is never echoed to the browser. The handler passes the visitor's IP in `X-Client-IP`; the API believes it **only** when the direct peer is in `TRUSTED_PROXIES`, so a spoofed header cannot dodge per-user rate limiting. The gate-signal endpoint is deliberately not proxied.
 - **Motion and accessibility.** Framer Motion is used for entrance stagger, a shared-layout selection highlight and a minutes count-up, under `MotionConfig reducedMotion="user"`; screen readers get the final value, not the animating digits. Crowd levels carry an icon and text, never colour alone; the map is a labelled region with a text fallback when WebGL is unavailable; dark mode follows the system setting.
 - **Run:** `cd frontend && cp .env.example .env.local && npm ci && npm run dev` (needs the API on `API_URL`, default `http://localhost:8000`). Checks: `npm run lint && npm run typecheck && npm test && npm run build`, all run in CI. Container: `frontend/Dockerfile` (standalone output, non-root) and the `web` service in `docker-compose.yml`.
@@ -592,14 +568,14 @@ Last run (real LightGBM/ONNX forecaster, in-memory notices, seed graph). `python
 - Public-holiday flags come from the optional `holidays` package (treated as 0 when it is not installed); the school-holiday calendar is not modelled.
 - `ridership_stats` matches the graph's station display name case-insensitively against the DOSM `origin`/`destination` strings. DOSM spellings may differ for some stations, so those return zero rows until they are listed in `app/transit/dosm_names.json`. Generate a proposal from a real DOSM export with `python scripts/map_dosm_names.py --parquet <file>` (run from `orchestration-api/`); it auto-accepts only exact and clearly-best matches and lists the rest for a human. The shipped map is empty because DOSM data was not reachable when this was built. Inbound lookups filter on `destination`, which is not in the table's sort key, so they scan more than outbound ones.
 - `ridership_stats` needs the dedicated read-only user (`infra/clickhouse/readonly_user.sql`) and the native-protocol port (9000); it refuses to run as a privileged user.
-- The re-planner UI lives in `frontend/` (Next.js 15). The rest of the legacy React/Vite app in `src/` (ticketing, admin, Blink auth, Firebase RAG, Google Maps) was **not** migrated. Base map tiles come from public OpenStreetMap; use your own tile provider in production.
+- The whole web UI lives in `frontend/` (Next.js 15). Base map tiles come from public OpenStreetMap; use your own tile provider in production.
 
 ### Run it
 ```bash
 # backend (seed graph + in-memory notices need no database)
 cd orchestration-api && pip install -r requirements-dev.txt && uvicorn main:app --reload
 # web app (Next.js; proxies /api/transit/* to API_URL, default http://localhost:8000)
-(cd frontend && npm ci && npm run dev)   # → http://localhost:3000
+(cd frontend && npm ci && npm run dev)   # → http://localhost:3000 (re-planner at /replan)
 # full data path (Postgres is bound to localhost only)
 docker-compose up -d postgres clickhouse
 (cd orchestration-api && DATABASE_URL=postgresql://beattraffic:beattraffic_dev@localhost:5432/beattraffic python -m scripts.seed_transit)

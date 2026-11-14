@@ -37,7 +37,26 @@ services:
       retries: 5
 
   web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # Build-time browser settings, taken from the shell/.env when set (see frontend/.env.example).
+      args:
+        - NEXT_PUBLIC_BLINK_PROJECT_ID
+        - NEXT_PUBLIC_BLINK_PUBLISHABLE_KEY
+        - NEXT_PUBLIC_FIREBASE_API_KEY
+        - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        - NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+        - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        - NEXT_PUBLIC_FIREBASE_APP_ID
+        - NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION
+        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        - NEXT_PUBLIC_BASMY_TOKEN
+        - NEXT_PUBLIC_OTP_URL
+        - NEXT_PUBLIC_ORCHESTRATION_API_URL
+        - NEXT_PUBLIC_PREDICT_DELAYS_URL
+        - NEXT_PUBLIC_PREDICT_CROWD_URL
+        - NEXT_PUBLIC_KL_EVENTS_URL
     environment:
       # Server-side only: the Next.js proxy forwards /api/transit/* here.
       API_URL: http://orchestration-api:8000

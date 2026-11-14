@@ -26,3 +26,14 @@ if (hasDom && !("ResizeObserver" in globalThis)) {
   }
   (globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub }).ResizeObserver = ResizeObserverStub;
 }
+
+// jsdom lacks IntersectionObserver, which Framer Motion's whileInView / useInView use.
+if (hasDom && !("IntersectionObserver" in globalThis)) {
+  class IntersectionObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+  }
+  (globalThis as unknown as { IntersectionObserver: typeof IntersectionObserverStub }).IntersectionObserver = IntersectionObserverStub;
+}

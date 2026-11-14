@@ -1,11 +1,9 @@
 name: CI
 on:
   push:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'frontend/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
-            'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
+    paths: ['orchestration-api/**', 'ml/**', 'frontend/**', 'netlify.toml', '.github/workflows/ci.yml', '.github/scripts/**']
   pull_request:
-    paths: ['orchestration-api/**', 'ml/**', 'src/**', 'frontend/**', 'public/**', 'index.html', 'package.json', 'package-lock.json',
-            'vite.config.*', 'tsconfig*.json', 'tailwind.config.*', 'postcss.config.*', '.github/workflows/ci.yml']
+    paths: ['orchestration-api/**', 'ml/**', 'frontend/**', 'netlify.toml', '.github/workflows/ci.yml', '.github/scripts/**']
 
 jobs:
   backend:
@@ -56,16 +54,8 @@ jobs:
           name: eval-results
           path: ${{ runner.temp }}/eval_results.json
 
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bunx vite build
-
   web:
-    # Next.js 15 app (frontend/): lint, typecheck, unit tests, production build.
+    # The Next.js 15 app (frontend/): the whole web UI. Lint, typecheck, unit tests, production build.
     runs-on: ubuntu-latest
     defaults:
       run:
