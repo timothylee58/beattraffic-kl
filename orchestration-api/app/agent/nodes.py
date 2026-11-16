@@ -182,20 +182,26 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         stations = list(dict.fromkeys(s for p in pool for s in _key_stations(p)))
         at = _depart(min(pool, key=lambda p: p["total_minutes"]), q.arrive_by)
         res = r.call("crowd_forecast", {"stations": stations, "at": at.isoformat(), "weather_code": q.weather_code,
-                                        "event_within_2km": q.event_within_2km, "observed": q.observed_crowd})
+                                        "event_within_2km": q.event_within_2km, "observed": q.observed_crowd,
+                                        "use_live_signals": True})
         if not res or not res.get("ok"):
             r.warnings.append("Crowd forecast is unavailable, so routes are ranked by travel time only.")
             for p in pool:
                 p.pop("crowd_level", None), p.pop("crowd_score", None), p.pop("crowd", None)
-            return r.out("forecast", {"available": False}, crowd_available=False, forecast_model=None)
+            return r.out("forecast", {"available": False}, crowd_available=False, forecast_model=None, signal_source="none")
+        sig = res.get("signals", {})
+        source = "request" if sig.get("explicit") and not sig.get("live") else "live_feed" if sig.get("live") and not sig.get("explicit") else "mixed" if sig.get("live") else "none"
+        if source in ("none", "request") and (sig.get("live_feed") or {}).get("ever_received") and not sig.get("live"):
+            age = sig["live_feed"].get("newest_age_s")
+            r.warnings.append(f"The live gate feed is stale (newest reading {round(age / 60)} min old), so it was not used." if age is not None else "The live gate feed has no fresh readings.")
         for p in pool:
             ks = _key_stations(p)
             sts = {s: res["stations"][s] for s in ks}
             p["crowd"] = {s: {"label": v["label"], "level": v["level"], "p_high": v["p_high"]} for s, v in sts.items()}
             p["crowd_level"] = max(v["level"] for v in sts.values())
             p["crowd_score"] = round(max(v["p_high"] for v in sts.values()), 4)  # worst bottleneck, not the average
-        return r.out("forecast", {"available": True, "model": res["model"], "stations": len(stations)},
-                     pool=pool, crowd_available=True, forecast_model=res["model"])
+        return r.out("forecast", {"available": True, "model": res["model"], "stations": len(stations), "signal_source": source},
+                     pool=pool, crowd_available=True, forecast_model=res["model"], signal_source=source)
 
     def assess(state: AgentState) -> dict:
         """Decide whether to re-plan around crowded stations. Hard loop cap: iteration <= max_iterations."""
@@ -270,11 +276,12 @@ def make_nodes(gw: ToolGateway) -> dict[str, Callable[[AgentState], dict]]:
         elif crowd_on:
             if (cav := _crowd_model_caveat()):
                 warnings.append(cav)
-            if not q.observed_crowd:
-                warnings.append("No live gate signals supplied: the model falls back to neutral recent-crowd inputs, so station crowd levels are weakly differentiated.")
+            if state.get("signal_source", "none") == "none":
+                warnings.append("No live gate signals available: the model falls back to neutral recent-crowd inputs, so station crowd levels are weakly differentiated.")
         ans = {
             **base, "routes": routes, "reason": reason, "warnings": warnings,
-            "crowd": {"available": crowd_on, "model": state.get("forecast_model"), "observed_signals": sorted(q.observed_crowd)},
+            "crowd": {"available": crowd_on, "model": state.get("forecast_model"), "observed_signals": sorted(q.observed_crowd),
+                      "signal_source": state.get("signal_source", "none")},
             "fastest_only_minutes": fastest["total_minutes"],
             "fastest_only_crowd_level": LABELS[fastest["crowd_level"]] if crowd_on else None,
             "fastest_only_p_high": fastest.get("crowd_score") if crowd_on else None,

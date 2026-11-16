@@ -47,3 +47,43 @@ def test_cors_allows_only_listed_origins():
     bad = client.options("/transit/replan", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
     assert ok.headers.get("access-control-allow-origin") == "http://localhost:5173"
     assert "access-control-allow-origin" not in bad.headers
+
+
+class _Req:
+    def __init__(self, peer, headers=None):
+        from types import SimpleNamespace
+        self.client = SimpleNamespace(host=peer) if peer else None
+        self.headers = headers or {}
+
+
+def test_client_ip_ignores_forwarded_header_unless_peer_is_a_trusted_proxy(monkeypatch):
+    from app.api.routes.transit import client_ip
+
+    spoof = {"x-client-ip": "198.51.100.7"}
+    monkeypatch.delenv("TRUSTED_PROXIES", raising=False)
+    assert client_ip(_Req("203.0.113.5", spoof)) == "203.0.113.5"  # no trusted proxies configured: header ignored
+    monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.0/8, 172.18.0.5")
+    assert client_ip(_Req("203.0.113.5", spoof)) == "203.0.113.5"  # untrusted peer cannot spoof
+    assert client_ip(_Req("10.4.3.2", spoof)) == "198.51.100.7"    # trusted proxy (CIDR) is believed
+    assert client_ip(_Req("172.18.0.5", spoof)) == "198.51.100.7"  # trusted proxy (single IP)
+
+
+def test_client_ip_rejects_junk_and_keeps_full_ipv6(monkeypatch):
+    from app.api.routes.transit import client_ip
+
+    monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.0/8")
+    assert client_ip(_Req("10.0.0.1", {"x-client-ip": "x'; DROP TABLE y; --"})) == "10.0.0.1"
+    assert client_ip(_Req("10.0.0.1", {})) == "10.0.0.1"
+    assert client_ip(_Req(None)) == "unknown"
+    v6 = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    assert client_ip(_Req("10.0.0.1", {"x-client-ip": v6})) == "2001:db8:85a3::8a2e:370:7334"
+
+
+def test_distinct_forwarded_clients_get_distinct_rate_limit_identities(monkeypatch):
+    from app.api.routes.transit import _gateway
+
+    monkeypatch.setenv("TRUSTED_PROXIES", "testclient")  # not an IP: documents that a bad entry never matches
+    r = client.post("/transit/replan", json=BODY, headers={"x-client-ip": "198.51.100.7"})
+    assert r.status_code == 200
+    ids = {rec["client"] for rec in _gateway().audit.for_trace(r.json()["trace_id"])}
+    assert ids == {"web:testclient"}  # TestClient's peer is not a valid IP, so the header was (correctly) not trusted

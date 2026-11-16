@@ -49,10 +49,10 @@ def build_server() -> MCPServer:
 
     @mcp.tool()
     def crowd_forecast(stations: list[str], at: datetime, weather_code: int = 0, event_within_2km: int = 0,
-                       observed: dict[str, dict] | None = None) -> str:
+                       observed: dict[str, dict] | None = None, use_live_signals: bool = False) -> str:
         """LightGBM crowd level (Low/Moderate/High) per station at a given time; optional observed tap/crowd signals."""
         return _call("crowd_forecast", stations=stations, at=at.isoformat(), weather_code=weather_code,
-                     event_within_2km=event_within_2km, observed=observed)
+                     event_within_2km=event_within_2km, observed=observed, use_live_signals=use_live_signals or None)
 
     @mcp.tool()
     def ridership_stats(station: str, direction: str = "outbound", day_type: str = "weekday", days: int = 90) -> str:

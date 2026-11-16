@@ -21,6 +21,10 @@ services:
     volumes: ["./orchestration-api:/app"]
     command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
     env_file: ["./orchestration-api/.env"]
+    environment:
+      # Per-user rate limiting behind the web proxy: believe X-Client-IP only from the web container.
+      TRUSTED_PROXIES: 172.29.250.10
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
     ports: ["8000:8000"]
     depends_on:
       clickhouse: { condition: service_healthy }
@@ -31,6 +35,38 @@ services:
       interval: 20s
       timeout: 5s
       retries: 5
+
+  web:
+    build:
+      context: ./frontend
+      # Build-time browser settings, taken from the shell/.env when set (see frontend/.env.example).
+      args:
+        - NEXT_PUBLIC_BLINK_PROJECT_ID
+        - NEXT_PUBLIC_BLINK_PUBLISHABLE_KEY
+        - NEXT_PUBLIC_FIREBASE_API_KEY
+        - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        - NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+        - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        - NEXT_PUBLIC_FIREBASE_APP_ID
+        - NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION
+        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        - NEXT_PUBLIC_BASMY_TOKEN
+        - NEXT_PUBLIC_OTP_URL
+        - NEXT_PUBLIC_ORCHESTRATION_API_URL
+        - NEXT_PUBLIC_PREDICT_DELAYS_URL
+        - NEXT_PUBLIC_PREDICT_CROWD_URL
+        - NEXT_PUBLIC_KL_EVENTS_URL
+    environment:
+      # Server-side only: the Next.js proxy forwards /api/transit/* here.
+      API_URL: http://orchestration-api:8000
+    ports: ["3000:3000"]
+    networks:
+      default:
+        # Fixed address so the API can trust X-Client-IP from this container (and nothing else).
+        ipv4_address: 172.29.250.10
+    depends_on:
+      orchestration-api: { condition: service_healthy }
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -141,6 +177,12 @@ services:
       timeout: 10s
       retries: 6
       start_period: 60s
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.250.0/24
 
 volumes:
   postgres_data:
