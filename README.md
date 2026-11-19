@@ -501,6 +501,25 @@ verify    verified=3 rejected=0
 answer    status=ok routes=2
 ```
 
+### PRD layout → repo paths
+The PRD sketched a layout (`etl/`, `clickhouse/`, `backend/app/{rag,graph,agent}`, ...). The code was built on this repo's existing layout instead, so the paths differ:
+
+| PRD path | Where it is here | Notes |
+|---|---|---|
+| `etl/` | `scripts/`, `functions/` | `scripts/load_ridership_clickhouse.py` loads DOSM ridership into ClickHouse (idempotent); `scripts/map_dosm_names.py` proposes DOSM station-name mappings; `functions/` holds the Blink edge functions. No separate `etl/` directory. |
+| `ml/` | `ml/` | LightGBM crowd model, exported to ONNX (`train_crowd_model.py`). |
+| `clickhouse/` | `infra/clickhouse/` | `init.sql` (schema) and `readonly_user.sql` (the `ridership_ro` user and its limits). Query code is `orchestration-api/app/transit/ridership.py`. |
+| `mcp_server/` | `orchestration-api/mcp_server/` | Gateway, rate limiting and audit logging (`gateway.py`, `ratelimit.py`, `audit.py`). |
+| `mcp_server/tools/plan_route.py` | `orchestration-api/mcp_server/tools/plan_route.py` | Same file name for all four tools. |
+| `.../crowd_forecast.py`, `ridership_stats.py`, `search_notices.py` | `orchestration-api/mcp_server/tools/` | Same names. |
+| `backend/app/rag/` | `orchestration-api/app/rag/` | pgvector notice store (`notices.py`). |
+| `backend/app/graph/` | `orchestration-api/app/transit/` | `build_graph.py`, `weights.py`, `routing.py` as specified, plus `forecast.py`, `ridership.py`, `gate_signals.py`. |
+| `backend/app/agent/` | `orchestration-api/app/agent/` | `state.py`, `nodes.py`, `graph.py` (LangGraph wiring, loop cap), plus `parse.py`, `ranking.py`, `metrics.py`. |
+| `eval/` | `orchestration-api/eval/` | `scenarios.jsonl`, `run_eval.py`, `trace_checks.py`. |
+| `frontend/` | `frontend/` | Next.js 15 + MapLibre GL; the re-planner is at `/replan`. |
+| `.github/workflows/ci.yml` | `.github/workflows/ci.yml` | `backend` and `web` jobs. |
+| `docker-compose.yml` | `docker-compose.yml` | Postgres, ClickHouse, Redis, API, web (plus the older Slack bot, Prometheus, Grafana and OTP services). |
+
 ### Web app (`frontend/`)
 Next.js 15 (App Router), React 19, Tailwind CSS 3, Framer Motion, MapLibre GL, shadcn-style primitives (Radix). It is the whole web UI: the landing page with ticketing, QR scanning, saved commutes, passport, leaderboard, Commute AI (Firebase RAG with a local fallback), Google Maps and the admin dashboard (Blink auth) live in `app/(site)`, and the disruption re-planner is at `/replan`.
 - **Migrated from Vite.** The old React/Vite app is gone. Environment variables are now `NEXT_PUBLIC_*` (inlined at build time); the Vite PWA plugin is replaced by a hand-written worker (`public/sw.js`, registered in production only): hashed `/_next/static` files are cache-first, page navigations are network-first with the last visited copy (or the home page) as the offline fallback, DOSM data is network-first with a 1 h limit and Google Maps is cache-first for 24 h. It only handles GET and never touches `/api`, Blink or Firebase calls. Bump `VERSION` in the file to drop old caches. The app is installable via `app/manifest.ts`; the GTFS/route caches use the Cache API directly. The landing page and admin keep their original light-only look; the re-planner follows the system theme.
