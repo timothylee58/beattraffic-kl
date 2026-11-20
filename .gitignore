@@ -26,6 +26,7 @@ firebase/functions/lib
 
 # ML model binaries (large; tracked via metrics.json instead)
 ml/models/*.onnx
+!ml/models/crowd_model_v1_dosm.onnx
 ml/models/*.lgb
 ml/models/*.csv
 

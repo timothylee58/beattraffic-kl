@@ -28,6 +28,8 @@ jobs:
           cache: pip
           cache-dependency-path: orchestration-api/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - name: Verify daily ridership model and metrics
+        run: python ../ml/verify_dosm.py
       - name: Start ClickHouse (the image pinned in docker-compose.yml)
         # A step, not a `services:` container, so a failed start prints the server's own logs.
         working-directory: .
