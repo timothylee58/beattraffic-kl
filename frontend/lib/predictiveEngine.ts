@@ -1,3 +1,4 @@
+import { klNow } from './dates'
 /**
  * Crowd prediction engine.
  *
@@ -88,8 +89,9 @@ function _heuristicCrowdLevel(
       (sum, i) => sum + (i.severity === 'high' ? 18 : i.severity === 'medium' ? 10 : 4),
       0,
     )
-  const score = Math.min(100, rushHourBoost + cityCenterBoost + incidentBoost + Math.floor(Math.random() * 20))
+  const score = Math.min(100, rushHourBoost + cityCenterBoost + incidentBoost)
   return {
+    source: 'heuristic',
     stationId: station.id,
     line: station.line,
     forecastAt: new Date().toISOString(),
@@ -133,7 +135,7 @@ async function _dailyForecast(
 ): Promise<CrowdForecast | null> {
   if (!ORCHESTRATION_URL) return null
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = klNow().date
     const res = await fetch(`${ORCHESTRATION_URL}/predict/crowd/daily`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,9 +144,9 @@ async function _dailyForecast(
     })
     if (!res.ok) return null
     const body = await res.json()
-    if (typeof body.crowd_level !== 'number') return null
+    if (body.model !== 'onnx' || ![0, 1, 2].includes(body.crowd_level)) return null
 
-    const isWeekend = [0, 6].includes(new Date().getDay())
+    const isWeekend = [0, 6].includes(klNow().day)
     const mult      = _intradayMultiplier(currentHour, isWeekend)
 
     // Map base crowd_level → base score midpoint, then scale intraday
@@ -152,6 +154,7 @@ async function _dailyForecast(
     const score     = Math.min(100, Math.round(baseScore * mult))
 
     return {
+      source: 'daily-model',
       stationId:  station.id,
       line:       station.line,
       forecastAt: new Date().toISOString(),
@@ -179,7 +182,7 @@ async function _dailyForecast(
 export async function predictCrowdLevel(
   station: TransitStation,
   incidents: TransitIncident[],
-  currentHour = new Date().getHours(),
+  currentHour = klNow().hour,
   eventNearby = false,
 ): Promise<CrowdForecast> {
   // Tier 1: daily DOSM regressor
@@ -207,8 +210,10 @@ export async function predictCrowdLevel(
       if (res.ok) {
         const body = await res.json()
         const pred = body.predictions?.[0]
-        if (pred) {
+        if (pred && [0, 1, 2].includes(pred.crowd_level) && Array.isArray(pred.probability) &&
+            pred.probability.length === 3 && pred.probability.every((n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1)) {
           return {
+            source: body.model === 'onnx' ? 'interval-model' : 'heuristic',
             stationId: station.id,
             line: station.line,
             forecastAt: new Date().toISOString(),

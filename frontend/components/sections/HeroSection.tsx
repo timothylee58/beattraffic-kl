@@ -4,7 +4,6 @@ import { Info, MapPinned, Search, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '../ui/button'
 import { RailBackdrop } from '../decor/RailBackdrop'
-import { AnimatedCounter } from '../motion/AnimatedCounter'
 import { GradientText } from '../motion/GradientText'
 import { MotionButton } from '../motion/MotionButton'
 import { TiltCard } from '../motion/TiltCard'
@@ -60,7 +59,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
               </span>
               <Info className="h-3 w-3" />
-              Moovit-beating intelligence for Malaysia
+              Transit planning for Klang Valley
             </motion.div>
 
             <motion.h1
@@ -101,7 +100,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                   onClick={() => document.getElementById('lines')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   <MapPinned className="h-4 w-4 mr-2" />
-                  Explore live map
+                  Explore network
                 </Button>
               </MotionButton>
             </motion.div>
@@ -116,9 +115,9 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
             <TiltCard className="glass-panel glow-ring rounded-3xl p-5 sm:p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-white/60">AI Crowd Pulse</p>
+                  <p className="text-xs uppercase tracking-widest text-white/60">Network preview</p>
                   <p className="text-2xl font-bold text-white">
-                    <AnimatedCounter value={73} suffix="% calm" />
+                    Estimates only
                   </p>
                 </div>
                 <motion.div
@@ -154,7 +153,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                       {line.name}
                     </span>
                     <span className="font-bold text-white">
-                      {line.label} <AnimatedCounter value={line.metric} suffix={line.suffix} />
+                      Status unavailable
                     </span>
                   </motion.div>
                 ))}
@@ -166,7 +165,7 @@ export function HeroSection({ onPlanRoute }: HeroSectionProps) {
                 transition={{ delay: 0.7, duration: 0.5, ease: EASE_OUT_EXPO }}
                 className="glass-panel rounded-2xl p-4 text-xs text-white/70 border-white/10"
               >
-                Offline-ready routing + 45k cached POIs across Klang Valley. Syncs when you reconnect.
+                Station coverage and estimates depend on the connected data sources. Check official information before travelling.
               </motion.div>
             </TiltCard>
           </motion.div>

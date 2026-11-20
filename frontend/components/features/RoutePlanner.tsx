@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, MapPin, ArrowRightLeft, TrainFront, AlertTriangle, Car, Footprints, CalendarDays } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
@@ -10,22 +10,17 @@ import { blink } from '../../lib/blink'
 import { useAuth } from '../../hooks/useAuth'
 import { fetchIncidents } from '../../lib/dosmApi'
 import { predictLineDelays } from '../../lib/delayPrediction'
-import { getAlternativeRoutes, getAlternativeRoutesSync } from '../../lib/alternativeRoutes'
+import { getAlternativeRoutes } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
-import { fetchGoKLRoutes, fetchGoKLStops, type GoKLRoute, type GoKLStop } from '../../lib/goklApi'
 import { estimateModalCost, haversineKm, type ModalCostResult } from '../../lib/modalCost'
-import { fetchNearbyEvents, hasHighImpactEvent, eventImpactLabel, type KLEvent } from '../../lib/eventApi'
-import { fallbackStations } from '../../lib/transitData'
+import { fetchNearbyEvents, eventImpactLabel, type KLEvent } from '../../lib/eventApi'
+import type { TransitStation } from '../../lib/transitData'
+import { fetchStationCatalog, catalogDescription } from '../../lib/stationCatalog'
+import { klSpendWindows } from '../../lib/dates'
 import { trackEvent } from '../../lib/analytics'
 import { calculateZonalFare, buildFareSummary, type FareSummary } from '../../lib/fareEngine'
 import { cacheRoute, getCachedRoute } from '../../lib/offlineCache'
 import { toast } from 'react-hot-toast'
-
-interface Station {
-  id: string
-  name: string
-  line: string
-}
 
 interface TicketRecord { created_at?: string; fare?: number }
 
@@ -36,7 +31,7 @@ const spend = (tickets: unknown[], since: Date) =>
 
 export function RoutePlanner() {
   const { user } = useAuth()
-  const [stations, setStations] = useState<Station[]>([])
+  const [stations, setStations] = useState<TransitStation[]>([])
   const [stationsLoading, setStationsLoading] = useState(true)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -44,141 +39,122 @@ export function RoutePlanner() {
   const [buying, setBuying] = useState(false)
   const [routeDelay, setRouteDelay] = useState(0)
   const [selectedAlt, setSelectedAlt] = useState<AlternativeRoute | null>(null)
-  const [goklRoutes, setGoklRoutes] = useState<GoKLRoute[]>([])
-  const [goklStops, setGoklStops] = useState<GoKLStop[]>([])
   const [modalCost, setModalCost] = useState<ModalCostResult | null>(null)
   const [nearbyEvents, setNearbyEvents] = useState<KLEvent[]>([])
   const [fareSummary, setFareSummary] = useState<FareSummary | null>(null)
   const [isOffline, setIsOffline] = useState(false)
+  const [stationMessage, setStationMessage] = useState('Loading station catalogue…')
+  const [alternatives, setAlternatives] = useState<AlternativeRoute[]>([])
+  const [calculating, setCalculating] = useState(false)
+  const [quote, setQuote] = useState<{ from: string; to: string; userId: string | null; at: number } | null>(null)
+  const request = useRef(0)
+  const buyingRef = useRef(false)
+
+  const invalidate = () => {
+    request.current++
+    setQuote(null); setFare(null); setFareSummary(null); setSelectedAlt(null)
+    setAlternatives([]); setModalCost(null); setNearbyEvents([]); setRouteDelay(0)
+    setIsOffline(false); setCalculating(false)
+  }
+  const changeFrom = (value: string) => { invalidate(); setFrom(value) }
+  const changeTo = (value: string) => { invalidate(); setTo(value) }
+  useEffect(() => { invalidate() }, [user?.id])
+  useEffect(() => () => { request.current++ }, [])
 
   useEffect(() => {
     loadStations()
-    fetchGoKLRoutes().then(setGoklRoutes)
-    fetchGoKLStops().then(setGoklStops)
   }, [])
 
   const loadStations = async () => {
     setStationsLoading(true)
-    try {
-      setStations((await blink.db.stations.list()) as Station[])
-    } catch {
-      toast.error('Failed to load stations')
-    } finally {
-      setStationsLoading(false)
-    }
+    const catalog = await fetchStationCatalog()
+    setStations(catalog.stations)
+    setStationMessage(catalogDescription(catalog))
+    setStationsLoading(false)
   }
 
   const calculateFare = async () => {
+    invalidate()
     if (!from || !to) { toast.error('Please select both stations'); return }
     if (from === to) { toast.error('Stations cannot be the same'); return }
-
     const fromStation = stations.find(s => s.id === from)
     const toStation = stations.find(s => s.id === to)
-    // Zonal fare from Prasarana table; zone defaults to 2 for unknown stations
-    const fromZone = fallbackStations.find(s => s.id === from || s.name === fromStation?.name)?.zone ?? 2
-    const toZone = fallbackStations.find(s => s.id === to || s.name === toStation?.name)?.zone ?? 2
-    const rawFare = calculateZonalFare(fromZone, toZone)
-
-    // Fare cap: query today's + week's spend from ticket history
-    let spentToday = 0
-    let spentThisWeek = 0
-    if (user) {
-      try {
-        const allTickets = await blink.db.tickets.list({ where: { user_id: user.id } })
-        const todayStr = new Date(); todayStr.setHours(0, 0, 0, 0)
-        const weekStr = new Date(); weekStr.setDate(weekStr.getDate() - 6); weekStr.setHours(0, 0, 0, 0)
-        spentToday = spend(allTickets, todayStr)
-        spentThisWeek = spend(allTickets, weekStr)
-      } catch { /* ignore — no cap applied if query fails */ }
-    }
-    const summary = buildFareSummary(rawFare, spentToday, spentThisWeek)
-    setFareSummary(summary)
-    const calculatedFare = summary.finalFare
-    setFare(calculatedFare)
-    setSelectedAlt(null)
-    setModalCost(null)
-    setNearbyEvents([])
-
-    // Coords from GTFS fallback table (best-effort; may be undefined for DB-only stations)
-    const fromCoords = fallbackStations.find(s => s.id === from || s.name === fromStation?.name)
-    const toCoords   = fallbackStations.find(s => s.id === to   || s.name === toStation?.name)
-
-    // Compute multi-modal cost comparison
-    const distKm = fromCoords && toCoords
-      ? haversineKm(fromCoords.lat, fromCoords.lon, toCoords.lat, toCoords.lon)
-      : 3 // default 3 km when coords unknown
-    setModalCost(estimateModalCost(calculatedFare, distKm))
-
-    // Fetch nearby events for origin + destination concurrently
-    // Skip sides with unknown coordinates to avoid showing KL-centre events as station-relevant
-    const [fromEvents, toEvents] = await Promise.all([
-      fromCoords ? fetchNearbyEvents(fromCoords.lat, fromCoords.lon) : Promise.resolve([]),
-      toCoords ? fetchNearbyEvents(toCoords.lat, toCoords.lon) : Promise.resolve([]),
-    ])
-    const allEvents = [...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))]
-    setNearbyEvents(allEvents)
-
-    // Check for delays on the from-station's line
+    if (!fromStation || !toStation) { toast.error('Station no longer available'); return }
+    const version = request.current
+    setCalculating(true)
     try {
-      const incidents = await fetchIncidents()
-      const delays = predictLineDelays(incidents)
-      const lineDelay = fromStation
-        ? delays.find(d => d.line === fromStation.line)?.estimatedDelay ?? 0
-        : 0
-      setRouteDelay(lineDelay)
-      // Cache alternatives for offline fallback
-      const alts = await getAlternativeRoutes(
-        lineDelay,
-        fromCoords ?? null,
-        toCoords ?? null,
-      )
-      cacheRoute(from, to, alts).catch(() => {})
-      setIsOffline(false)
+      let spentToday = 0, spentThisWeek = 0
+      if (user) {
+        const tickets = await blink.db.tickets.list({ where: { user_id: user.id } })
+        const windows = klSpendWindows()
+        spentToday = spend(tickets, windows.today)
+        spentThisWeek = spend(tickets, windows.week)
+      }
+      if (version !== request.current) return
+      const summary = buildFareSummary(calculateZonalFare(fromStation.zone, toStation.zone), spentToday, spentThisWeek)
+      setFareSummary(summary)
+      setFare(summary.finalFare)
+      setQuote({ from, to, userId: user?.id ?? null, at: Date.now() })
+      setModalCost(estimateModalCost(summary.finalFare, haversineKm(fromStation.lat, fromStation.lon, toStation.lat, toStation.lon)))
+
+      const [fromEvents, toEvents, incidents] = await Promise.all([
+        fetchNearbyEvents(fromStation.lat, fromStation.lon),
+        fetchNearbyEvents(toStation.lat, toStation.lon),
+        fetchIncidents(),
+      ])
+      if (version !== request.current) return
+      setNearbyEvents([...fromEvents, ...toEvents.filter(e => !fromEvents.some(f => f.id === e.id))])
+      // Do not manufacture disruptions from peak-hour heuristics when the incident feed is unavailable.
+      const delay = predictLineDelays(incidents, 12).find(d => d.line === fromStation.line)?.estimatedDelay ?? 0
+      setRouteDelay(delay)
+      if (!navigator.onLine) {
+        const cached = await getCachedRoute(from, to)
+        if (version !== request.current) return
+        setAlternatives(cached ?? [])
+        setIsOffline(true)
+      } else {
+        const routes = await getAlternativeRoutes(delay, fromStation, toStation)
+        if (version !== request.current) return
+        setAlternatives(routes)
+        if (routes.length) void cacheRoute(from, to, routes)
+      }
     } catch {
-      setRouteDelay(0)
-      // Try offline cache
-      const cached = await getCachedRoute(from, to)
-      if (cached) setIsOffline(true)
+      if (version === request.current) {
+        invalidate()
+        toast.error('Unable to calculate a fare. Please retry.')
+      }
+    } finally {
+      if (version === request.current) setCalculating(false)
     }
   }
 
   const buyTicket = async () => {
-    if (!user) { toast.error('Please sign in to buy a ticket'); blink.auth.login(); return }
+    if (buyingRef.current) return
+    if (!quote || quote.from !== from || quote.to !== to || from === to ||
+        quote.userId !== (user?.id ?? null) || !fareSummary || Date.now() - quote.at > 300_000) {
+      invalidate(); toast.error('Please check the fare again for this journey'); return
+    }
+    if (!user) { toast.error('Please sign in to create a demo ticket'); blink.auth.login(); return }
+    buyingRef.current = true
     setBuying(true)
     try {
-      const ticketId = `T-${Math.random().toString(36).substring(2, 9).toUpperCase()}`
+      // Demonstration only: never issue an active operator ticket without a payment/issuance integration.
+      const ticketId = `DEMO-${crypto.randomUUID()}`
       await blink.db.tickets.create({
-        id: ticketId,
-        user_id: user.id,
-        from_station_id: from,
-        to_station_id: to,
-        fare: selectedAlt ? selectedAlt.fare : fare!,
-        status: 'active',
-        qr_code: `RAPIDKL-${ticketId}-${from}-${to}`,
+        id: ticketId, user_id: user.id,
+        from_station_id: quote.from, to_station_id: quote.to,
+        fare: fareSummary.finalFare, status: 'demo', created_at: new Date().toISOString(),
+        qr_code: `DEMO-NOT-VALID-FOR-TRAVEL-${ticketId}`,
       })
-      trackEvent('ticket_purchased', {
-        from_station_id: from,
-        to_station_id: to,
-        fare: selectedAlt ? selectedAlt.fare : fare!,
-        used_alternative: selectedAlt ? 1 : 0,
-        alternative_id: selectedAlt?.label ?? '',
-      })
-      toast.success('Ticket purchased successfully!')
-      setFare(null)
-      setFareSummary(null)
-      setFrom('')
-      setTo('')
-      setRouteDelay(0)
-      setSelectedAlt(null)
-      setModalCost(null)
+      toast.success('Demo ticket saved — not valid for travel')
+      invalidate(); setFrom(''); setTo('')
     } catch {
-      toast.error('Failed to purchase ticket')
+      toast.error('Failed to save demo ticket')
     } finally {
+      buyingRef.current = false
       setBuying(false)
     }
   }
-
-  const alternatives = getAlternativeRoutesSync(routeDelay)
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
@@ -190,14 +166,16 @@ export function RoutePlanner() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          <p role="status" className="text-sm text-muted-foreground">{stationMessage}</p>
+          <p className="text-sm text-muted-foreground">Fares and caps are illustrative estimates. Demo tickets are not valid for travel; no payment is taken.</p>
           <div className="grid md:grid-cols-[1fr_auto_1fr] items-end gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-destructive" />
                 From
               </label>
-              <Select value={from} onValueChange={setFrom} disabled={stationsLoading}>
-                <SelectTrigger>
+              <Select value={from} onValueChange={changeFrom} disabled={stationsLoading || buying}>
+                <SelectTrigger aria-label="Origin station">
                   <SelectValue placeholder={stationsLoading ? 'Loading stations…' : 'Select origin'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -213,7 +191,8 @@ export function RoutePlanner() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => { const t = from; setFrom(to); setTo(t) }}
+              disabled={buying}
+              onClick={() => { invalidate(); const t = from; setFrom(to); setTo(t) }}
               aria-label="Swap origin and destination"
               className="mb-1 rounded-full hover:bg-secondary"
             >
@@ -225,8 +204,8 @@ export function RoutePlanner() {
                 <MapPin className="h-4 w-4 text-primary" />
                 To
               </label>
-              <Select value={to} onValueChange={setTo} disabled={stationsLoading}>
-                <SelectTrigger>
+              <Select value={to} onValueChange={changeTo} disabled={stationsLoading || buying}>
+                <SelectTrigger aria-label="Destination station">
                   <SelectValue placeholder={stationsLoading ? 'Loading stations…' : 'Select destination'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,16 +219,16 @@ export function RoutePlanner() {
             </div>
           </div>
 
-          <Button onClick={calculateFare} disabled={stationsLoading} className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12">
+          <Button onClick={calculateFare} disabled={stationsLoading || calculating || buying} className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12">
             <Search className="h-4 w-4 mr-2" />
-            Check Fare & Routes
+            {calculating ? 'Checking…' : 'Check Fare & Routes'}
           </Button>
 
           {fare !== null && (
             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
               {isOffline && (
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700">
-                  <span>Offline — showing last cached route</span>
+                  <span>Offline — cached alternatives may be stale; live arrivals unavailable</span>
                 </div>
               )}
               {routeDelay > 0 && !selectedAlt && (
@@ -262,7 +241,14 @@ export function RoutePlanner() {
               {selectedAlt && (
                 <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
                   <span className="font-semibold">Alternative selected:</span> {selectedAlt.label}
-                  <button onClick={() => setSelectedAlt(null)} className="ml-auto text-xs underline text-green-700">Clear</button>
+                  <button onClick={() => {
+                    if (!fareSummary) return
+                    const origin = stations.find(s => s.id === from)
+                    const destination = stations.find(s => s.id === to)
+                    if (!origin || !destination) { invalidate(); return }
+                    setFareSummary(buildFareSummary(calculateZonalFare(origin.zone, destination.zone), fareSummary.spentToday, fareSummary.spentThisWeek))
+                    setSelectedAlt(null)
+                  }} className="ml-auto text-xs underline text-green-700">Clear</button>
                 </div>
               )}
 
@@ -284,12 +270,12 @@ export function RoutePlanner() {
               <div className="p-6 bg-secondary rounded-xl space-y-4">
                 {fareSummary?.isCapped && (
                   <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm text-emerald-800">
-                    <span className="font-semibold">Daily cap applied</span> — RM {fareSummary.dailyRemaining.toFixed(2)} remaining today
+                    <span className="font-semibold">Demo fare cap applied</span> — RM {fareSummary.dailyRemaining.toFixed(2)} remaining today
                   </div>
                 )}
                 {fareSummary && fareSummary.weeklyRemaining < 5 && (
                   <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-800">
-                    Weekly cap: RM {fareSummary.spentThisWeek.toFixed(2)} / RM 25.00 spent — RM {fareSummary.weeklyRemaining.toFixed(2)} left
+                    Rolling 7-day demo cap: RM {fareSummary.spentThisWeek.toFixed(2)} / RM 25.00 spent — RM {fareSummary.weeklyRemaining.toFixed(2)} left
                   </div>
                 )}
                 <div className="flex justify-between items-center">
@@ -305,16 +291,16 @@ export function RoutePlanner() {
                   <Button
                     size="lg"
                     onClick={buyTicket}
-                    disabled={buying}
+                    disabled={buying || calculating}
                     className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold px-8"
                   >
-                    {buying ? 'Processing…' : 'Buy Ticket'}
+                    {buying ? 'Saving…' : 'Create demo ticket'}
                   </Button>
                 </div>
                 <div className="border-t border-border pt-4">
                   <p className="text-sm font-medium flex items-center gap-2">
                     <TrainFront className="h-4 w-4" />
-                    Next train in: <span className="text-primary font-bold">4 mins</span>
+                    Live train arrivals unavailable
                     {routeDelay > 0 && <span className="text-yellow-600 text-xs">(+{routeDelay}m delay)</span>}
                   </p>
                 </div>
@@ -327,8 +313,12 @@ export function RoutePlanner() {
       {fare !== null && alternatives.length > 0 && (
         <AlternativeRoutePanel
           delayMinutes={routeDelay}
+          routes={alternatives}
           onSelect={route => {
-            setSelectedAlt(route)
+            if (!fareSummary) return
+            const summary = buildFareSummary(route.fare, fareSummary.spentToday, fareSummary.spentThisWeek)
+            setFareSummary(summary)
+            setSelectedAlt({ ...route, fare: summary.finalFare })
             trackEvent('alternative_route_selected', {
               from_station_id: from,
               to_station_id: to,
@@ -395,31 +385,7 @@ export function RoutePlanner() {
         </Card>
       )}
 
-      {/* Free GoKL bus options */}
-      {fare !== null && goklStops.length > 0 && (
-        <Card className="border-t-4 border-t-red-600 animate-in slide-in-from-bottom-2 duration-300">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded">FREE</span>
-              GoKL City Bus — Free feeder options
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">GoKL buses are free within KL city. These stops are near major rail interchanges on your route.</p>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {goklStops.slice(0, 4).map(stop => (
-                <div key={stop.stopId} className="flex items-start gap-2.5 p-3 rounded-lg border bg-red-50/50">
-                  <div className="w-2 h-2 rounded-full bg-red-600 mt-1.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">{stop.name}</p>
-                    <p className="text-xs text-muted-foreground">Routes: {stop.routeIds.length > 0 ? stop.routeIds.join(', ') : goklRoutes.slice(0, 2).map(r => r.shortName).join(', ')}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {fare !== null && <p className="text-sm text-muted-foreground">GoKL feeder routes unavailable — check the operator for routes and eligibility.</p>}
     </div>
   )
 }

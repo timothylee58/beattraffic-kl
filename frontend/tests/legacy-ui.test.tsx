@@ -36,7 +36,7 @@ describe("landing sections", () => {
 describe("alternative routes panel", () => {
   it("lists routes for a real delay and picks one", () => {
     const onSelect = vi.fn();
-    render(<AlternativeRoutePanel delayMinutes={12} onSelect={onSelect} />);
+    render(<AlternativeRoutePanel delayMinutes={12} routes={[{ id: "otp-1", label: "Via interchange", mode: "rail", duration: 20, transfers: 1, reliability: 0, via: ["KL Sentral"], fare: 2 }]} onSelect={onSelect} />);
     expect(screen.getByText(/Smart Alternative Routes/)).toBeInTheDocument();
     const buttons = screen.getAllByRole("button");
     fireEvent.click(buttons[0]!);
@@ -44,7 +44,7 @@ describe("alternative routes panel", () => {
   });
 
   it("renders nothing below the 5 minute threshold", () => {
-    const { container } = render(<AlternativeRoutePanel delayMinutes={3} onSelect={() => {}} />);
+    const { container } = render(<AlternativeRoutePanel delayMinutes={3} routes={[]} onSelect={() => {}} />);
     expect(container).toBeEmptyDOMElement();
   });
 });
@@ -81,6 +81,12 @@ describe("QR ticket validation", () => {
     expect(tickets.list).toHaveBeenCalledWith({ where: { qr_code: "RAPIDKL-T-1" } });
     expect(screen.queryByText(/no ticket found/i)).not.toBeInTheDocument();
     expect(screen.getByText(/T-1/)).toBeInTheDocument();
+  });
+
+  it("rejects demo tickets before looking up an operator ticket", async () => {
+    await validate("DEMO-NOT-VALID-FOR-TRAVEL-123");
+    expect(screen.getByText("Demo tickets are not valid for travel.")).toBeInTheDocument();
+    expect(tickets.list).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown code", async () => {

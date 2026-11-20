@@ -7,11 +7,7 @@ import { Button } from '../ui/button';
 import { blink } from '../../lib/blink';
 import { useAuth } from '../../hooks/useAuth';
 import QRCode from 'react-qr-code';
-
-interface StationRow {
-  id: string;
-  name: string;
-}
+import { fetchStationCatalog } from '@/lib/stationCatalog';
 
 interface TicketData {
   id: string;
@@ -36,16 +32,16 @@ export function TicketList() {
     setLoading(true);
     setError(null);
     try {
-      const [data, stations] = await Promise.all([
+      const [data, catalog] = await Promise.all([
         blink.db.tickets.list({ where: { user_id: user.id }, orderBy: { created_at: 'desc' } }),
-        blink.db.stations.list(),
+        fetchStationCatalog(),
       ]);
-      const stationMap = new Map((stations as StationRow[]).map(s => [s.id, s.name]));
+      const stationMap = new Map(catalog.stations.map(s => [s.id, s.name]));
       setTickets(
         (data as TicketData[]).map(ticket => ({
           ...ticket,
-          from_name: stationMap.get(ticket.from_station_id),
-          to_name: stationMap.get(ticket.to_station_id),
+          from_name: stationMap.get(ticket.from_station_id) ?? ticket.from_station_id,
+          to_name: stationMap.get(ticket.to_station_id) ?? ticket.to_station_id,
         }))
       );
     } catch (err) {
@@ -67,7 +63,7 @@ export function TicketList() {
           <LogIn className="h-12 w-12 text-muted-foreground opacity-20" />
           <div className="space-y-1">
             <p className="font-semibold text-muted-foreground">Sign in to view your tickets</p>
-            <p className="text-sm text-muted-foreground/60">Your purchased tickets will appear here.</p>
+            <p className="text-sm text-muted-foreground/60">Your saved demo tickets will appear here.</p>
           </div>
           <Button onClick={() => blink.auth.login()} className="bg-primary hover:bg-primary/90">
             Sign In
@@ -83,6 +79,8 @@ export function TicketList() {
         <Ticket className="h-6 w-6" />
         My Tickets
       </h2>
+
+      <p role="status" className="text-sm text-muted-foreground">Demo tickets are not valid for travel. No payment is taken.</p>
 
       {loading && (
         <div className="text-center py-12 text-muted-foreground text-sm">Loading tickets…</div>
@@ -102,8 +100,8 @@ export function TicketList() {
           <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
             <Ticket className="h-12 w-12 text-muted-foreground opacity-20" />
             <div className="space-y-1">
-              <p className="font-semibold text-muted-foreground">No active tickets</p>
-              <p className="text-sm text-muted-foreground/60">Your purchased tickets will appear here.</p>
+              <p className="font-semibold text-muted-foreground">No saved tickets</p>
+              <p className="text-sm text-muted-foreground/60">Your saved demo tickets will appear here.</p>
             </div>
           </CardContent>
         </Card>

@@ -1,22 +1,11 @@
-/**
- * OpenTripPlanner 2 GraphQL client.
- *
- * Queries the OTP server running at NEXT_PUBLIC_OTP_URL (defaults to
- * http://localhost:8080/otp/routers/default/index/graphql).
- * Returns null on any network/parse failure so callers can fall back to
- * the static template routes.
- *
- * The OTP service is defined in docker-compose.yml and loads Prasarana
- * GTFS data on first start. When the service is absent (e.g. development
- * without docker compose), all calls return null and the template fallback
- * is used transparently.
+/** OpenTripPlanner client. Only queries an explicitly configured NEXT_PUBLIC_OTP_URL.
+ * Unavailable planning returns null; no fabricated template routes are substituted.
  */
 
 import type { AlternativeRoute } from './alternativeRoutes'
 
 const OTP_URL =
-  (process.env.NEXT_PUBLIC_OTP_URL as string | undefined) ??
-  'http://localhost:8080/otp/routers/default/index/graphql'
+  process.env.NEXT_PUBLIC_OTP_URL
 
 // ── GraphQL query ──────────────────────────────────────────────────────────────
 
@@ -153,6 +142,7 @@ export async function queryOtpRoutes(
   from: OtpCoords,
   to:   OtpCoords,
 ): Promise<AlternativeRoute[] | null> {
+  if (!OTP_URL) return null
   try {
     const now  = new Date()
     const date = now.toISOString().slice(0, 10)                  // YYYY-MM-DD

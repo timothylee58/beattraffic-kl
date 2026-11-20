@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { Train, Bus, DoorOpen, Settings, Clock, AlertTriangle, Users, Navigation, CheckCircle2, Wrench, XCircle } from 'lucide-react'
+import { Train, Bus, DoorOpen, Settings, AlertTriangle, Navigation, CheckCircle2, Wrench, XCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { getStationDetails } from '../../lib/stationIntelligence'
@@ -26,25 +26,25 @@ const FACILITY_LABELS: Record<string, string> = {
 
 const STATUS_ICON = (s: StationFacility['status']) =>
   s === 'operational'
-    ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+    ? <CheckCircle2 className="h-3.5 w-3.5 text-green-700" />
     : s === 'maintenance'
-      ? <Wrench className="h-3.5 w-3.5 text-yellow-600" />
+      ? <Wrench className="h-3.5 w-3.5 text-yellow-800" />
       : <XCircle className="h-3.5 w-3.5 text-red-600" />
 
 const OCCUPANCY_LABELS = {
-  empty: { label: 'Empty', color: 'text-green-600' },
-  light: { label: 'Light', color: 'text-green-500' },
-  moderate: { label: 'Moderate', color: 'text-yellow-600' },
+  empty: { label: 'Empty', color: 'text-green-700' },
+  light: { label: 'Light', color: 'text-green-700' },
+  moderate: { label: 'Moderate', color: 'text-yellow-800' },
   full: { label: 'Full', color: 'text-red-600' },
 }
 
 const CROWD_COLOR = (score: number) =>
-  score < 35 ? 'text-green-600' : score < 60 ? 'text-yellow-600' : score < 80 ? 'text-orange-600' : 'text-red-600'
+  score < 35 ? 'text-green-700' : score < 60 ? 'text-yellow-800' : score < 80 ? 'text-orange-600' : 'text-red-600'
 
 interface Props {
   stationId: string
   stationName: string
-  crowdScore: number
+  crowdScore: number | null
 }
 
 export function StationIntelligence({ stationId, stationName, crowdScore }: Props) {
@@ -52,7 +52,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
   const [buses, setBuses] = useState<BusStop[]>([])
 
   useEffect(() => {
-    setDetails(getStationDetails(stationId, stationName, crowdScore))
+    setDetails(getStationDetails(stationId, stationName, crowdScore ?? 0))
     fetchNearbyBuses(stationId).then(setBuses)
   }, [stationId, stationName, crowdScore])
 
@@ -60,6 +60,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
 
   return (
     <div className="space-y-4">
+      <p role="status" className="text-sm text-muted-foreground">Crowd estimate only. Live arrivals, facilities and exit information are unavailable.</p>
       {/* Header strip */}
       <div className="rounded-2xl bg-primary text-primary-foreground p-5 space-y-2">
         <div className="flex items-start justify-between">
@@ -69,9 +70,9 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
           </div>
           <div className="text-right">
             <p className={`text-3xl font-bold ${CROWD_COLOR(details.crowdScore)} bg-white rounded-xl px-3 py-1`}>
-              {details.crowdScore}
+              {crowdScore ?? '—'}
             </p>
-            <p className="text-xs text-primary-foreground/70 mt-1">Crowd Score</p>
+            <p className="text-xs text-primary-foreground/70 mt-1">Estimated Crowd Score</p>
           </div>
         </div>
         {details.isPeakHour && (
@@ -91,6 +92,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
+          {details.nextTrains.length === 0 && <p className="text-sm text-muted-foreground">Live train arrivals unavailable. Check the station display.</p>}
           {details.nextTrains.map((t, i) => (
             <div key={i} className="flex items-center justify-between rounded-lg bg-secondary/40 px-4 py-2.5">
               <div>
@@ -118,6 +120,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            {details.facilities.length === 0 && <p className="text-sm text-muted-foreground">Facility status unavailable.</p>}
             {details.facilities.map((f, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
@@ -141,6 +144,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {details.exits.length === 0 && <p className="text-sm text-muted-foreground">Use official station signs for exit directions.</p>}
             {details.exits.map(exit => (
               <div key={exit.exitCode} className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -168,6 +172,7 @@ export function StationIntelligence({ stationId, stationName, crowdScore }: Prop
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {buses.length === 0 && <p className="text-sm text-muted-foreground">Live bus arrivals unavailable.</p>}
           {buses.map(stop => (
             <div key={stop.id} className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

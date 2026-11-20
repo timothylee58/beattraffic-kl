@@ -77,9 +77,14 @@ export function QRScanner() {
     setScanState('validating')
     setTicketResult(null)
     setErrorMsg(null)
+    if (qrValue.startsWith('DEMO-')) {
+      setErrorMsg('Demo tickets are not valid for travel.'); setScanState('invalid'); return
+    }
     try {
       const matches = await blink.db.tickets.list({ where: { qr_code: qrValue } })
-      if (matches.length > 0) {
+      if ((matches[0] as TicketResult | undefined)?.status === 'demo') {
+        setErrorMsg('Demo tickets are not valid for travel.'); setScanState('invalid')
+      } else if (matches.length > 0) {
         setTicketResult(matches[0] as TicketResult)
         setScanState('valid')
       } else {

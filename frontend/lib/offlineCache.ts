@@ -2,7 +2,8 @@ import type { GtfsStop } from './gtfsStatic'
 import type { AlternativeRoute } from './alternativeRoutes'
 
 const GTFS_CACHE = 'gtfs-v1'
-const ROUTE_CACHE = 'route-v1'
+// v2 excludes legacy fabricated route templates.
+const ROUTE_CACHE = 'route-v2'
 const GTFS_KEY = 'stops'
 
 function cacheAvailable(): boolean {
@@ -45,6 +46,10 @@ export async function getCachedRoute(from: string, to: string): Promise<Alternat
     const cache = await caches.open(ROUTE_CACHE)
     const resp = await cache.match(`${from}-${to}`)
     if (!resp) return null
-    return await resp.json() as AlternativeRoute[]
+    const routes: unknown = await resp.json()
+    if (!Array.isArray(routes) || !routes.every(r => r && typeof r.id === 'string' && typeof r.label === 'string' &&
+      ['rail', 'bus', 'mixed'].includes(r.mode) && Array.isArray(r.via) && r.via.every((s: unknown) => typeof s === 'string') &&
+      [r.fare, r.duration, r.transfers].every(n => typeof n === 'number' && Number.isFinite(n) && n >= 0))) return null
+    return routes as AlternativeRoute[]
   } catch { return null }
 }

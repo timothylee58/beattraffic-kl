@@ -3,7 +3,6 @@
 import { Bus, Train, Shuffle, Star, Clock, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
-import { getAlternativeRoutesSync } from '../../lib/alternativeRoutes'
 import type { AlternativeRoute } from '../../lib/alternativeRoutes'
 
 const MODE_ICONS = {
@@ -12,16 +11,13 @@ const MODE_ICONS = {
   mixed: <Shuffle className="h-4 w-4" />,
 }
 
-const RELIABILITY_COLOR = (r: number) =>
-  r >= 85 ? 'text-green-600' : r >= 70 ? 'text-yellow-600' : 'text-red-600'
-
 interface Props {
+  routes: AlternativeRoute[]
   delayMinutes: number
   onSelect: (route: AlternativeRoute) => void
 }
 
-export function AlternativeRoutePanel({ delayMinutes, onSelect }: Props) {
-  const routes = getAlternativeRoutesSync(delayMinutes)
+export function AlternativeRoutePanel({ routes, delayMinutes, onSelect }: Props) {
   if (routes.length === 0) return null
 
   return (
@@ -74,8 +70,8 @@ export function AlternativeRoutePanel({ delayMinutes, onSelect }: Props) {
                 {route.duration} min
               </span>
               <span>{route.transfers} transfer{route.transfers !== 1 ? 's' : ''}</span>
-              <span className={`font-semibold ${RELIABILITY_COLOR(route.reliability)}`}>
-                {route.reliability}% reliable
+              <span className="font-semibold text-muted-foreground">
+                Schedule estimate
               </span>
               <span className="ml-auto font-semibold text-primary">RM {route.fare.toFixed(2)}</span>
             </div>

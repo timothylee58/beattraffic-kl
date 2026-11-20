@@ -21,6 +21,8 @@ interface LiveTickerProps {
 export function LiveTicker({ lineStatus }: LiveTickerProps) {
   const { t } = useLanguage()
 
+  if (lineStatus.length === 0) return <div role="status" className="bg-[#031733] text-white px-4 py-3 text-sm text-center">Live network status unavailable — check official operator announcements before travelling.</div>
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }}

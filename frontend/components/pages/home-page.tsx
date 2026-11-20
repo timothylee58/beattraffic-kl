@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { ComponentType } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -44,24 +44,8 @@ export function HomePage() {
   const { t } = useLanguage()
   const { sendMessage } = useAgent()
   const [activeTab, setActiveTab] = useState<Tab>('planner')
-  const [lineStatus, setLineStatus] = useState<LineStatus[]>([])
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const response = await fetch('https://lkkep88b--get-train-status.functions.blink.new')
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const data = await response.json()
-      setLineStatus(data)
-    } catch (error) {
-      console.error('Error fetching status:', error)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchStatus()
-    const interval = setInterval(fetchStatus, 30000)
-    return () => clearInterval(interval)
-  }, [fetchStatus])
+  // The legacy status endpoint generated random observations; do not present it as a live feed.
+  const lineStatus: LineStatus[] = []
 
   const handlePlanRoute = () => {
     setActiveTab('planner')
