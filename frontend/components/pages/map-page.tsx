@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
-import { fallbackStations } from '@/lib/transitData'
+import { fetchStationCatalog, catalogDescription } from '@/lib/stationCatalog'
 import { predictCrowdLevel } from '@/lib/predictiveEngine'
 import { GOOGLE_MAPS_API_KEY, KL_CENTER, CROWD_MARKER_COLORS } from '@/lib/mapConfig'
 import type { CrowdForecast } from '@/lib/transitData'
@@ -48,29 +48,17 @@ export function MapPage() {
     id: 'google-map-script',
   })
 
+  const [sourceLabel, setSourceLabel] = useState('Loading station catalogue…')
   useEffect(() => {
-    const base: StationMarker[] = fallbackStations.map(s => ({
-      id: s.id,
-      name: s.name,
-      lat: s.lat,
-      lon: s.lon,
-      forecast: null,
-    }))
-    setMarkers(base)
-
-    // Fetch crowd forecasts in parallel
-    Promise.all(
-      fallbackStations.map(s =>
-        predictCrowdLevel(s, []).then(f => ({ id: s.id, forecast: f }))
-      )
-    ).then(results => {
-      setMarkers(prev =>
-        prev.map(m => {
-          const r = results.find(r => r.id === m.id)
-          return r ? { ...m, forecast: r.forecast } : m
-        })
-      )
+    let cancelled = false
+    fetchStationCatalog().then(async catalog => {
+      if (cancelled) return
+      setSourceLabel(catalogDescription(catalog))
+      setMarkers(catalog.stations.map(s => ({ ...s, forecast: null })))
+      const results = await Promise.all(catalog.stations.map(async s => ({ ...s, forecast: await predictCrowdLevel(s, []) })))
+      if (!cancelled) setMarkers(results)
     })
+    return () => { cancelled = true }
   }, [])
 
   const handleMarkerClick = useCallback((marker: StationMarker) => {
@@ -110,7 +98,8 @@ export function MapPage() {
     <div className="relative">
       {/* Legend */}
       <div className="absolute top-4 left-4 z-10 bg-white dark:bg-gray-900 rounded-xl shadow-lg px-4 py-3 space-y-1.5 text-sm">
-        <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Crowd Level</p>
+        <p className="text-xs max-w-xs">{sourceLabel} Crowd estimates only.</p>
+        <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Estimated Crowd Level</p>
         {Object.entries(CROWD_MARKER_COLORS).map(([label, color]) => (
           <div key={label} className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: color }} />
@@ -147,7 +136,7 @@ export function MapPage() {
                   <p className="text-muted-foreground capitalize mt-1">{selected.forecast.label} — score {selected.forecast.score}</p>
                   <button
                     className="mt-2 text-blue-600 underline text-xs"
-                    onClick={() => router.push(`/station/${selected.id}`)}
+                    onClick={() => router.push(`/station/${encodeURIComponent(selected.id)}`)}
                   >
                     View station details →
                   </button>

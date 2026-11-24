@@ -193,7 +193,7 @@ async def predict_crowd_daily(payload: DailyCrowdRequest) -> DailyCrowdResponse:
             input_name = session.get_inputs()[0].name
             X          = _build_feature_vector(station, target_date)
             outputs    = session.run(None, {input_name: X})
-            volume     = float(outputs[0][0])
+            volume     = float(outputs[0].item())
             level, label = _volume_to_label(volume)
             return DailyCrowdResponse(
                 station_name=station,

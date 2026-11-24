@@ -18,3 +18,14 @@ export function arriveByISO(time: string, now: number = Date.now()): string {
 export function hhmm(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: KL });
 }
+
+/** Current service date/hour independent of the traveller's device timezone. */
+export function klNow(now = new Date()) {
+  const shifted = new Date(now.getTime() + 8 * 60 * 60 * 1000)
+  return { date: shifted.toISOString().slice(0, 10), hour: shifted.getUTCHours(), day: shifted.getUTCDay() }
+}
+
+export function klSpendWindows(now = new Date()) {
+  const today = new Date(`${klNow(now).date}T00:00:00+08:00`)
+  return { today, week: new Date(today.getTime() - 6 * 86400000) }
+}

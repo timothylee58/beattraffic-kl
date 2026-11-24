@@ -1,6 +1,6 @@
-// Prasarana MyRapid zonal fare table (MYR)
-// Zones 1 (city core), 2 (inner suburbs), 3 (outer suburbs)
-// Source: Prasarana published fare schedule
+import { klSpendWindows } from './dates'
+// Illustrative fare estimates (MYR), not an operator-approved tariff.
+// Daily/rolling-seven-day caps below are demo policy until verified with the operator.
 const ZONE_FARE: Record<number, Record<number, number>> = {
   1: { 1: 1.20, 2: 2.00, 3: 3.00 },
   2: { 1: 2.00, 2: 1.50, 3: 2.50 },
@@ -14,28 +14,15 @@ export function calculateZonalFare(fromZone: number, toZone: number): number {
   return ZONE_FARE[fromZone]?.[toZone] ?? ZONE_FARE[toZone]?.[fromZone] ?? 2.00
 }
 
-function todayStart(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function weekStart(): Date {
-  const d = new Date()
-  d.setDate(d.getDate() - 6)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
 export async function getSpentToday(userId: string, tickets: { user_id: string; fare: number; created_at?: string }[]): Promise<number> {
-  const start = todayStart().toISOString()
+  const start = klSpendWindows().today.toISOString()
   return tickets
     .filter(t => t.user_id === userId && (t.created_at ?? '') >= start)
     .reduce((sum, t) => sum + (t.fare ?? 0), 0)
 }
 
 export async function getSpentThisWeek(userId: string, tickets: { user_id: string; fare: number; created_at?: string }[]): Promise<number> {
-  const start = weekStart().toISOString()
+  const start = klSpendWindows().week.toISOString()
   return tickets
     .filter(t => t.user_id === userId && (t.created_at ?? '') >= start)
     .reduce((sum, t) => sum + (t.fare ?? 0), 0)
@@ -61,14 +48,19 @@ export function buildFareSummary(
   spentToday: number,
   spentThisWeek: number,
 ): FareSummary {
-  const finalFare = cappedFare(rawFare, spentToday)
+  const validAmount = (n: number) => Number.isFinite(n) && n >= 0
+  if (![rawFare, spentToday, spentThisWeek].every(validAmount)) throw new Error('Invalid fare amount')
+  const cents = (n: number) => Math.round(n * 100)
+  const dailyRemaining = Math.max(0, cents(DAILY_CAP) - cents(spentToday))
+  const weeklyRemaining = Math.max(0, cents(WEEKLY_CAP) - cents(spentThisWeek))
+  const finalFare = Math.min(cents(rawFare), dailyRemaining, weeklyRemaining) / 100
   return {
     rawFare,
     finalFare,
     isCapped: finalFare < rawFare,
     spentToday,
     spentThisWeek,
-    dailyRemaining: Math.max(0, DAILY_CAP - spentToday),
-    weeklyRemaining: Math.max(0, WEEKLY_CAP - spentThisWeek),
+    dailyRemaining: dailyRemaining / 100,
+    weeklyRemaining: weeklyRemaining / 100,
   }
 }

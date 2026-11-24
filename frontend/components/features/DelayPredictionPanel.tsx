@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
-import { TrendingDown, TrendingUp, Minus, AlertTriangle, CheckCircle2, Clock, Flag } from 'lucide-react'
+import { TrendingDown, TrendingUp, Minus, AlertTriangle, Clock, Flag } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { fetchIncidents } from '../../lib/dosmApi'
 import { predictLineDelays, LINE_COLORS } from '../../lib/delayPrediction'
@@ -11,14 +11,14 @@ import type { TransitLineCode } from '../../lib/transitData'
 import { trackEvent } from '../../lib/analytics'
 
 const SEVERITY_COLORS = {
-  none: 'bg-green-50 border-green-200',
+  none: 'bg-muted/30 border-border',
   minor: 'bg-yellow-50 border-yellow-200',
   moderate: 'bg-orange-50 border-orange-200',
   severe: 'bg-red-50 border-red-200',
 }
 
 const SEVERITY_BADGE: Record<LineDelayPrediction['severity'], string> = {
-  none: 'bg-green-100 text-green-800',
+  none: 'bg-muted text-muted-foreground',
   minor: 'bg-yellow-100 text-yellow-800',
   moderate: 'bg-orange-100 text-orange-800',
   severe: 'bg-red-100 text-red-800',
@@ -44,12 +44,12 @@ export function DelayPredictionPanel() {
 
   useEffect(() => {
     fetchIncidents().then(incidents => {
-      setPredictions(predictLineDelays(incidents))
+      setPredictions(predictLineDelays(incidents, 12))
       setLoading(false)
     })
     refreshCounts()
     const interval = setInterval(() => {
-      fetchIncidents().then(incidents => setPredictions(predictLineDelays(incidents)))
+      fetchIncidents().then(incidents => setPredictions(predictLineDelays(incidents, 12)))
       refreshCounts()
     }, 60_000)
     return () => clearInterval(interval)
@@ -76,17 +76,18 @@ export function DelayPredictionPanel() {
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
-          AI Delay Prediction
+          Service Status
         </CardTitle>
         {!loading && (
           <span className="text-xs text-muted-foreground">
             {delayedCount === 0
-              ? 'All lines running normally'
+              ? 'Live incident feed unavailable'
               : `${delayedCount} line${delayedCount > 1 ? 's' : ''} with delays`}
           </span>
         )}
       </CardHeader>
       <CardContent>
+        <p className="text-sm text-muted-foreground mb-3">No verified incident feed is connected. Community reports below are unverified.</p>
         {loading ? (
           <div className="space-y-3">
             {[...Array(4)].map((_, i) => (
@@ -108,19 +109,19 @@ export function DelayPredictionPanel() {
                   <div className="flex items-center gap-1.5">
                     <TrendIcon trend={p.trend} />
                     <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${SEVERITY_BADGE[p.severity]}`}>
-                      {p.severity === 'none' ? 'On Time' : `+${p.estimatedDelay}m`}
+                      {p.severity === 'none' ? 'Unverified' : `+${p.estimatedDelay}m`}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground truncate max-w-[60%]">{p.cause}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[60%]">{p.severity === 'none' ? 'Status unavailable' : p.cause}</p>
                   <div className="flex items-center gap-1">
                     {p.severity === 'none' ? (
-                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      <Minus className="h-3 w-3 text-muted-foreground" />
                     ) : (
                       <AlertTriangle className="h-3 w-3 text-orange-500" />
                     )}
-                    <span className="text-[10px] text-muted-foreground">{p.confidence}% conf.</span>
+                    <span className="text-[10px] text-muted-foreground">No live measurement</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-black/5">

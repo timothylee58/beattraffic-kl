@@ -9,7 +9,7 @@ This script automates the notebook cells in ml/crowd_prediction_v1.ipynb.
 Usage:
     python ml/train_dosm.py                    # fetch + train + export
     python ml/train_dosm.py --years 2024 2025  # specific years only
-    python ml/train_dosm.py --skip-download --data ml/models/ridership.parquet
+    python ml/train_dosm.py --data ml/models/ridership.parquet
 
 Output:
     ml/models/crowd_model_v1_dosm.onnx
@@ -17,6 +17,7 @@ Output:
 """
 from __future__ import annotations
 
+import hashlib
 import argparse
 import json
 import sys
@@ -91,14 +92,19 @@ def engineer_features(od: pd.DataFrame) -> pd.DataFrame:
     print(f"  Station map entries: {len(station_line_map)}")
 
     # Daily volume per station
+    # Published files include network totals in addition to station-to-station pairs.
+    od = od.loc[~(od.origin.str.startswith("A0:") | od.destination.str.startswith("A0:"))]
     origin_vol = od.groupby(["date", "origin"])["ridership"].sum().rename("outbound")
     dest_vol   = od.groupby(["date", "destination"])["ridership"].sum().rename("inbound")
+    origin_vol.index.names = dest_vol.index.names = ["date", "station"]
     daily = (
         pd.concat([origin_vol, dest_vol], axis=1)
         .fillna(0)
         .reset_index()
         .rename(columns={"origin": "station"})
     )
+    daily["station"] = daily.station.str.replace(r"^[^:]+:\s*", "", regex=True)
+    daily = daily.groupby(["date", "station"], as_index=False)[["inbound", "outbound"]].sum()
     daily["total_volume"] = daily["outbound"] + daily["inbound"]
 
     # Calendar
@@ -108,9 +114,9 @@ def engineer_features(od: pd.DataFrame) -> pd.DataFrame:
 
     # Malaysia public holidays
     my_years = daily["date"].dt.year.unique().tolist()
-    my_holidays = holidays.Malaysia(years=my_years, subdiv="KL")
-    daily["is_ph"]     = daily["date"].isin(my_holidays).astype(int)
-    daily["is_eve_ph"] = daily["date"].shift(-1).isin(my_holidays).astype(int)
+    my_holidays = holidays.Malaysia(years=my_years, subdiv="KUL")
+    daily["is_ph"]     = daily["date"].dt.date.isin(list(my_holidays)).astype(int)
+    daily["is_eve_ph"] = (daily["date"] + pd.Timedelta(days=1)).dt.date.isin(list(my_holidays)).astype(int)
 
     # Station metadata
     daily["line_id"]        = daily["station"].map(lambda s: station_line_map.get(s, {}).get("line_id", -1))
@@ -173,7 +179,15 @@ def train_model(daily: pd.DataFrame):
         print(f"    {str(line):20s}  MAE_LGB={mae_lgb:.0f}  improvement={impr:.1f}%")
         per_line_mae[str(line)] = round(mae_lgb, 1)
 
-    return model, X_train, y_test, pred, per_line_mae
+    coverage = {
+        "train_rows": len(X_train), "test_rows": len(y_test),
+        "train_end": str(df_model.loc[mask_train, "date"].max().date()),
+        "test_start": str(test_df.date.min().date()), "test_end": str(test_df.date.max().date()),
+        "stations": sorted(df_model.station.unique()),
+        "persistence_mae": float(mean_absolute_error(y_test, X_test["lag_1d"])),
+        "rolling_7d_mae": float(mean_absolute_error(y_test, X_test["rolling_7d_mean"])),
+    }
+    return model, X_train, y_test, pred, per_line_mae, coverage
 
 
 # ── ONNX export ────────────────────────────────────────────────────────────────
@@ -191,11 +205,13 @@ def export_onnx(model, n_features: int) -> Path:
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
-def write_metrics(y_test, pred, per_line_mae: dict) -> None:
+def write_metrics(y_test, pred, per_line_mae: dict, coverage: dict) -> None:
     overall_mae  = mean_absolute_error(y_test, pred)
     overall_mape = mean_absolute_percentage_error(y_test, pred)
     metrics = {
         "version": "v1-dosm",
+        **coverage,
+        "model_sha256": hashlib.sha256((MODELS_DIR / "crowd_model_v1_dosm.onnx").read_bytes()).hexdigest(),
         "data_source": "DOSM Daily OD Ridership: Rapid Rail (KV)",
         "features": FEATURES,
         "n_features": len(FEATURES),
@@ -230,13 +246,21 @@ def main() -> None:
     daily = engineer_features(od)
 
     print("\n=== Step 3: Training ===")
-    model, X_train, y_test, pred, per_line_mae = train_model(daily)
+    model, X_train, y_test, pred, per_line_mae, coverage = train_model(daily)
 
     print("\n=== Step 4: ONNX export ===")
     export_onnx(model, X_train.shape[1])
 
     print("\n=== Step 5: Metrics ===")
-    write_metrics(y_test, pred, per_line_mae)
+    import onnxruntime as ort
+    session = ort.InferenceSession(str(MODELS_DIR / "crowd_model_v1_dosm.onnx"), providers=["CPUExecutionProvider"])
+    probe = X_train.iloc[:32]
+    converted = session.run(None, {session.get_inputs()[0].name: probe.to_numpy(dtype=np.float32)})[0]
+    np.testing.assert_allclose(converted.ravel(), model.predict(probe), rtol=1e-4, atol=0.1)
+    if args.data:
+        coverage["input_file"] = Path(args.data).name
+        coverage["input_sha256"] = hashlib.sha256(Path(args.data).read_bytes()).hexdigest()
+    write_metrics(y_test, pred, per_line_mae, coverage)
 
     print("\nDone. Next: set CROWD_DAILY_MODEL_PATH=ml/models/crowd_model_v1_dosm.onnx in orchestration-api .env")
 

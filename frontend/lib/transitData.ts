@@ -26,6 +26,7 @@ export interface TransitIncident {
 }
 
 export interface CrowdForecast {
+  source?: 'daily-model' | 'interval-model' | 'heuristic'
   stationId: string
   line: TransitLineCode
   forecastAt: string
